@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.BannerDao">
+
+    <!-- 获取轮播图列表 -->
+    <select id="getBannerList" resultType="com.leehuang.his.api.mis.dto.banner.vo.BannerPageVO">
+        SELECT
+            b.id,
+            b.name,
+            b.image,
+            b.goods_id,
+            g.title,
+            g.status as goods_status,
+            b.remarks,
+            b.status
+        FROM
+        (
+            SELECT b.id
+            FROM tb_banner b
+            LEFT JOIN tb_goods g ON b.goods_id = g.id
+            <where>
+                <if test="request.keyword != null and request.keyword != ''">
+                    (
+                        b.name LIKE CONCAT('%', #{request.keyword}, '%')
+                        OR b.remarks LIKE CONCAT('%', #{request.keyword}, '%')
+                        OR g.title LIKE CONCAT('%', #{request.keyword}, '%')
+                    )
+                </if>
+                <if test="request.goodsId != null">
+                    AND b.goods_id = #{request.goodsId}
+                </if>
+                <if test="request.status != null">
+                    AND b.status = #{request.status}
+                </if>
+            </where>
+            ORDER BY b.status DESC, g.status DESC, b.goods_id, b.id
+            LIMIT #{start}, #{request.length}
+        ) AS temp
+        INNER JOIN tb_banner b ON temp.id = b.id
+        LEFT JOIN tb_goods g ON b.goods_id = g.id;
+    </select>
+
+    <!--  获取数据总数  -->
+    <select id="getBannerListCount" resultType="java.lang.Long">
+        SELECT count(*)
+        FROM tb_banner
+        <where>
+            <if test="request.keyword != null and request.keyword != ''">
+                (name LIKE CONCAT('%', #{request.keyword}, '%') OR remarks LIKE CONCAT('%', #{request.keyword}, '%'))
+            </if>
+            <if test="request.status != null">
+                AND status = #{request.status}
+            </if>
+        </where>
+    </select>
+
+    <!--  更新轮播图状态  -->
+    <update id="updateBannerStatus">
+        update tb_banner set status = #{status} where id = #{id}
+    </update>
+
+    <!--  新增轮播图  -->
+    <insert id="insertBanner">
+        insert into tb_banner(name, image, goods_id, remarks, status)
+            values(#{name}, #{image}, #{goodsId}, #{remarks}, #{status})
+    </insert>
+
+    <!--  根据id获取轮播图  -->
+    <select id="getBannerById" resultType="com.leehuang.his.api.mis.dto.banner.vo.BannerPageVO">
+        select id, name, goods_id, remarks, image, status from tb_banner where id = #{id}
+    </select>
+
+
+    <!--  更新轮播图  -->
+    <update id="updateBanner">
+        update tb_banner set
+                name = #{name},
+                goods_id = #{goodsId},
+                remarks = #{remarks},
+                image = #{image}
+        where id = #{id}
+    </update>
+
+    <!--  是否可以删除  -->
+    <select id="selectCanDelBanner" resultType="java.lang.Boolean">
+        select NOT EXISTS(
+            select 1 from tb_banner where id in
+            <foreach collection="ids" separator="," open="(" close=")" item="id">
+                #{id}
+            </foreach>
+            and status = 1
+        ) as canDel
+    </select>
+
+    <!--  获取所有被选中的图片  -->
+    <select id="selectImage" resultType="java.lang.String">
+        select image from tb_banner where id in
+        <foreach collection="ids" separator="," open="(" close=")" item="id">
+            #{id}
+        </foreach>
+    </select>
+
+
+    <!--  删除轮播图  -->
+    <delete id="deleteBanner">
+        delete from tb_banner where status = false and id in
+        <foreach collection="ids" separator="," open="(" close=")" item="id">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!--  获取已发布的轮播图  -->
+    <select id="getPublishedBanner" resultType="java.lang.String">
+        select image from tb_banner where status = 1
+    </select>
+</mapper>

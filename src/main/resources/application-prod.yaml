@@ -1,0 +1,15 @@
+server:
+  port: 80
+
+spring:
+  shardingsphere:
+    props:
+      sql-show: false
+
+logging:
+  level:
+    root: warn                            # 只记录警告和错误，避免 Spring 框架 Debug 日志拖垮性能
+    com.leehuang.his.api.db.dao: warn     # 记录 SQL 但不记录参数（防敏感数据泄露）
+    com.baomidou.mybatisplus: error       # 框架错误才记录，防止打印内部执行逻辑，减少性能损耗
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

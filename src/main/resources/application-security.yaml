@@ -1,0 +1,34 @@
+sa-token:
+  # 设置 HTTP 请求头中的哪个属性用来上传令牌
+  token-name: token
+  # 设置 token 的有效期，过期时间为 30 天，单位为秒，-1 代表永久有效
+  timeout: 2592000
+  # 设置 token 的临时有效期为 3 天，单位为秒，默认-1 代表不限制，永不冻结
+  # 临时有效期是指用户访问系统的间隔时间不超过临时有效期，令牌在有效期内就一直有效；若用户访问系统的间隔时间超过临时有效期，即使令牌在有效期内仍旧会过期
+  # 令牌是否过期需要以 activity-timeout 为准，例如设置 timeout 为 30 天，activity-timeout 为 7 天，则用户在 7 天内不访问系统，即使还在 30 天有效期内，令牌依旧会过期。
+  activity-timeout: 604800
+  # 同端互斥（可多端登录），是否允许同一账号多地同时登录 （为 true 时允许一起登录, 为 false 时新登录挤掉旧登录），当多端登录时，需要使用不同的验证授权体系
+  is-concurrent: false
+  # 在多人登录同一账号时，是否共用一个 token （为 true 时所有登录共用一个 token, 为 false 时每次登录新建一个 token）
+  is-share: false
+  # token 风格（默认可取值：uuid、simple-uuid、random-32、random-64、random-128、tik）
+  token-style: uuid
+  # 设置是否通过 cookie 传输 token，false 表示只通过请求头来传输 token
+  is-read-cookie: false
+  # 设置 Redis 连接，将令牌保存到 Redis 逻辑库中，同时避免令牌与业务数据共用同一 Redis 逻辑库
+  alone-redis:
+    database: 2
+    host: localhost
+    port: 6379
+    password: ${REDIS_PASSWORD}
+    timeout: 10s
+    lettuce:
+      pool:
+        # 连接池最大连接数
+        max-active: 200
+        # 连接池最大阻塞等待时间（使用负值表示没有限制）
+        max-wait: 10s
+        # 连接池中的最大空闲连接
+        max-idle: 16
+        # 连接池中的最小空闲连接
+        min-idle: 8

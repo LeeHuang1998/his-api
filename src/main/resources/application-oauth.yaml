@@ -1,0 +1,7 @@
+oauth:
+  gitee:
+    clientId: ${GITEE_CLIENT_SECRET}
+    clientSecret: ${GITEE_CLIENT_SECRET}
+    redirectUri: http://localhost:7700/his-api/OAuth2.0/giteeLogin/success
+    accessTokenUrl: https://gitee.com/oauth/token
+    userInfoUrl: https://gitee.com/api/v5/user

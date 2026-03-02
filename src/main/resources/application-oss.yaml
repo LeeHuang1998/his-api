@@ -1,0 +1,5 @@
+minio:
+  endpoint: http://localhost:9000
+  access-key: root
+  secret-key: ${MINIO_SECRET_KEY}
+  bucket: his

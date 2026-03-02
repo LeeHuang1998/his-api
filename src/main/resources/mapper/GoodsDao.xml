@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.GoodsDao">
+    <!-- 分页查询商品数据 -->
+    <select id="getGoodsListByPage" resultType="com.leehuang.his.api.mis.dto.goods.vo.GoodsMisPageVO">
+        # FORMAT(g.initial_price, 0) 格式化价格，第二个参数为保留小数位数
+        # case：
+        #       若销量的字符长度 &lt;= 4 时，不保留小数，       &lt; 表示小于
+        #       若长度 > 4，则去除掉最后四个字符串（MID 的第二个参数为起始位置，从 1 开始，第三个参数为要截取的字符个数，省略则表示取到末尾），保留剩余的字符串并和 '万+' 拼接
+        # end：结束 case
+        select g.id, g.title, g.code, FORMAT(g.initial_price, 0) as initialPrice, FORMAT(g.current_price, 0) as currentPrice,
+        case
+        when LENGTH(g.sales_volume) &lt;=4 then FORMAT(g.sales_volume, 0)
+        else CONCAT(FORMAT(MID(g.sales_volume, 1, LENGTH(g.sales_volume) - 4), 0), '万+')
+        end as salesVolume,
+        r.name as ruleName, g.type, g.status, g.part_id as partId, (g.checkup IS NOT NULL ) as hasCheckup
+        from tb_goods g left join tb_rule r on g.rule_id = r.id
+        <where>
+            <if test="request.keyword != null">
+                and g.title like concat('%', #{request.keyword}, '%')
+            </if>
+            <if test="request.code != null">
+                and g.code like concat('%', #{request.code}, '%')
+            </if>
+            <if test="request.type != null">
+                and g.type = #{request.type}
+            </if>
+            <if test="request.status != null">
+                and g.status = #{request.status}
+            </if>
+            <if test="request.partId != null">
+                and g.part_id = #{request.partId}
+            </if>
+        </where>
+        limit #{start}, #{request.length}
+    </select>
+
+    <!-- 查询商品数据总数 -->
+    <select id="getGoodsListCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM tb_goods
+        <where>
+            <if test="keyword!=null">
+                AND title LIKE CONCAT("%",#{keyword},"%")
+            </if>
+            <if test="type!=null">
+                AND type = #{type}
+            </if>
+            <if test="partId!=null">
+                AND part_id = #{partId}
+            </if>
+            <if test="status!=null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- 获取所有促销方案 -->
+    <select id="getAllRules" resultType="com.leehuang.his.api.db.entity.RuleEntity">
+        select id, name from tb_rule
+    </select>
+
+    <!-- 插入新套餐 -->
+    <insert id="insertGoods">
+        insert into tb_goods set
+             code = #{code},
+             title = #{title},
+             description = #{description},
+             checkup_1 = #{checkup1},
+             checkup_2 = #{checkup2},
+             checkup_3 = #{checkup3},
+             checkup_4 = #{checkup4},
+             sales_volume = 0,
+             image = #{image},
+             initial_price = #{initialPrice},
+             current_price = #{currentPrice},
+             type = #{type},
+             # 可为空
+             part_id = #{partId},
+             # 可为空
+             rule_id = #{ruleId},
+             status = false,
+             # 可为空
+             tag = #{tag},
+             md5 = #{md5}
+    </insert>
+
+    <!-- 根据 id 查询商品数据 -->
+    <select id="getGoodsById" resultType="com.leehuang.his.api.db.entity.GoodsEntity">
+        select id,
+               code,
+               title,
+               description,
+               checkup_1,
+               checkup_2,
+               checkup_3,
+               checkup_4,
+               checkup,
+               image,
+               initial_price,
+               current_price,
+               type,
+               tag,
+               part_id,
+               rule_id
+        from tb_goods
+        where id = #{id}
+    </select>
+
+    <!-- 更新商品数据 -->
+    <update id="updateGoods">
+        update tb_goods set
+            title = #{title},
+            code = #{code},
+            description = #{description},
+            checkup_1 = #{checkup1},
+            checkup_2 = #{checkup2},
+            checkup_3 = #{checkup3},
+            checkup_4 = #{checkup4},
+            image = #{image},
+            initial_price = #{initialPrice},
+            current_price = #{currentPrice},
+            type = #{type},
+            tag = #{tag},
+            part_id = #{partId},
+            rule_id = #{ruleId},
+            md5 = #{md5}
+        where id = #{id}
+    </update>
+
+    <!-- 更新商品审核状态 -->
+    <update id="updateGoodsCheckup">
+        update tb_goods set
+            checkup = #{checkup},
+            md5 = #{md5}
+        where id = #{id}
+    </update>
+
+    <!-- 更新套餐上架状态 -->
+    <update id="updateGoodsStatus">
+        update tb_goods set
+            status = #{status}
+        where id = #{id}
+    </update>
+
+    <!-- 判断商品是否可以被删除，可以返回 0，不可以返回 1 -->
+    <select id="selectCanDelGoods" resultType="java.lang.Boolean">
+        select NOT EXISTS(
+            select 1 from tb_goods where id in
+                <foreach collection="ids" separator="," open="(" close=")" item="id">
+                    #{id}
+                 </foreach>
+            and status = 1
+        ) as canDel
+    </select>
+
+    <!-- 查询删除商品的图片 -->
+    <select id="selectImage" resultType="java.lang.String">
+        select image from tb_goods where id in
+            <foreach collection="ids" separator="," open="(" close=")" item="id">
+                #{id}
+            </foreach>
+    </select>
+
+    <delete id="deleteGoods">
+        delete from tb_goods where status = false and sales_volume = 0 and id in
+            <foreach collection="ids" separator="," open="(" close=")" item="id">
+                 #{id}
+            </foreach>
+    </delete>
+
+    <!--  根据 id 获取页面商品数据，必须上架才能预览  -->
+    <resultMap id="goodsFrontDataMap" type="com.leehuang.his.api.front.dto.goods.FrontGoodsDataDTO">
+        <!-- 其它字段正常 -->
+        <result column="count_1" property="count_1"/>
+        <result column="count_2" property="count_2"/>
+        <result column="count_3" property="count_3"/>
+        <result column="count_4" property="count_4"/>
+    </resultMap>
+
+    <!--  使用 resultMap 的原因：
+            IFNULL(JSON_LENGTH(g.checkup_1), 0) as count_1 得到的列名为：COUNT_1，大小写匹配失败
+            所以会使用驼峰命名转换，转换为 count1
+    -->
+    <select id="getGoodsFrontPageVoById" resultMap="goodsFrontDataMap">
+        select g.code, g.title, g.description, g.image as images,
+               g.initial_price as initialPrice,
+               g.current_price as currentPrice,
+               r.name as ruleName,
+               g.type, g.tag as tags,
+               g.checkup_1, IFNULL(JSON_LENGTH(g.checkup_1), 0) as count_1,
+               g.checkup_2, IFNULL(JSON_LENGTH(g.checkup_2), 0) as count_2,
+               g.checkup_3, IFNULL(JSON_LENGTH(g.checkup_3), 0) as count_3,
+               g.checkup_4, IFNULL(JSON_LENGTH(g.checkup_4), 0) as count_4
+        from tb_goods g left join tb_rule r on g.rule_id = r.id
+        where g.id = #{id}
+        <if test="status != null">
+            and g.status = #{status}
+        </if>
+    </select>
+
+    <!--  获取 banner 对应商品的状态  -->
+    <select id="selectStatus" resultType="java.lang.Boolean">
+        select g.status from tb_goods g
+            inner join tb_banner b on g.id = b.goods_id
+        where b.id = #{id}
+        LIMIT 1;
+    </select>
+
+    <!--  根据 part_id 查询商品  -->
+    <select id="searchGoodsByPartIds" resultType="com.leehuang.his.api.front.dto.index.vo.GoodsItemVO">
+        <foreach collection="ids" item="pid" separator=" UNION ALL ">
+            (
+            SELECT id, code, title, description, image,
+            initial_price AS initialPrice,
+            current_price AS currentPrice,
+            sales_volume AS salesVolume,
+            part_id
+            FROM tb_goods
+            WHERE status = 1
+            AND part_id = #{pid}
+            ORDER BY sales_volume DESC, id DESC
+            LIMIT 4
+            )
+        </foreach>
+    </select>
+
+    <!--  分页查询商品  -->
+    <select id="searchGoodsByPage" resultType="com.leehuang.his.api.front.dto.index.vo.GoodsItemVO">
+        select
+            id, code, title, description, image,
+            initial_price as initialPrice,
+            current_price as currentPrice,
+            sales_volume as salesVolume,
+            part_id
+        from tb_goods
+        where status = 1
+        <if test="request.keyword!=null">
+            AND ( title LIKE CONCAT("%",#{request.keyword},"%") OR
+            code LIKE CONCAT("%",#{request.keyword},"%")
+            )
+        </if>
+        <if test="request.partId!=null">
+            AND part_id = #{request.partId}
+        </if>
+        <if test="request.type!=null">
+            AND type = #{request.type}
+        </if>
+        <if test="request.sex!=null">
+            AND JSON_CONTAINS (tag, CONCAT('"',#{request.sex},'"'))
+        </if>
+        <choose>
+            <when test="request.priceType==1">
+                AND current_price &gt;= 0 AND current_price &lt; 100
+            </when>
+            <when test="request.priceType==2">
+                AND current_price &gt;= 100 AND current_price &lt; 500
+            </when>
+            <when test="request.priceType==3">
+                AND current_price &gt;= 500 AND current_price &lt; 1000
+            </when>
+            <when test="request.priceType==4">
+                AND current_price &gt;= 1000
+            </when>
+        </choose>
+        <choose>
+            <when test="request.orderType==1">
+                ORDER BY id DESC
+            </when>
+            <when test="request.orderType==2">
+                ORDER BY sales_volume DESC
+            </when>
+            <when test="request.orderType==3">
+                ORDER BY currentPrice ASC
+            </when>
+            <when test="request.orderType==4">
+                ORDER BY currentPrice DESC
+            </when>
+            <otherwise>
+                # 默认分支，当所有都为 false 时触发
+                ORDER BY sales_volume DESC, id DESC
+            </otherwise>
+        </choose>
+        LIMIT #{start}, #{request.length}
+    </select>
+
+    <!-- 分页查询数据总数 -->
+    <select id="searchCountByPage" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM tb_goods
+        WHERE `status` = 1
+        <if test="request.keyword!=null">
+            AND ( title LIKE CONCAT("%",#{request.keyword},"%") OR
+            code LIKE CONCAT("%",#{request.keyword},"%")
+            )
+        </if>
+        <if test="request.type!=null">
+            AND type = #{request.keyword}
+        </if>
+        <if test="request.partId!=null">
+            and part_id = #{request.partId}
+        </if>
+        <if test="request.sex!=null">
+            AND JSON_CONTAINS (tag, CONCAT('"',#{request.sex},'"'))
+        </if>
+        <choose>
+            <when test="request.priceType==1">
+                AND current_price &gt;= 0 AND current_price &lt; 100
+            </when>
+            <when test="request.priceType==2">
+                AND current_price &gt;= 100 AND current_price &lt; 500
+            </when>
+            <when test="request.priceType==3">
+                AND current_price &gt;= 500 AND current_price &lt; 1000
+            </when>
+            <when test="request.priceType==4">
+                AND current_price &gt;= 1000
+            </when>
+        </choose>
+    </select>
+
+    <!--  根据 id 查询商品快照信息  -->
+    <select id="searchGoodsSnapshotById" resultType="com.leehuang.his.api.db.pojo.GoodsSnapShotDTO">
+        SELECT g.`code`,
+               g.title,
+               g.description,
+               g.image,
+               CAST(g.initial_price AS CHAR) AS initialPrice,
+               CAST(g.current_price AS CHAR) AS currentPrice,
+               r.name AS ruleName,
+               r.rule,
+               g.type,
+               g.tag,
+               g.checkup_1,
+               g.checkup_2,
+               g.checkup_3,
+               g.checkup_4,
+               g.checkup,
+               g.`md5`
+        FROM tb_goods g
+                 LEFT JOIN tb_rule r ON g.rule_id = r.id
+        WHERE g.id = #{id}
+    </select>
+</mapper>

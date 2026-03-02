@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.CustomerDao">
+
+    <!--  短信登录查找用户  -->
+    <select id="searchCustomerByTel" resultType="com.leehuang.his.api.db.entity.CustomerEntity">
+        select id, username from tb_customer where tel = #{identity}
+    </select>
+
+    <!--  用户名登录查找用户  -->
+    <select id="searchCustomerByUsernmae" resultType="com.leehuang.his.api.db.entity.CustomerEntity">
+        select id, username, password from tb_customer where username = #{identity}
+    </select>
+
+    <!--  根据 id 获取用户登录信息  -->
+    <select id="searchCustomerById" resultType="com.leehuang.his.api.db.entity.CustomerEntity">
+        select id, username, password from tb_customer where id = #{customerId}
+    </select>
+
+    <!-- 根据 id 获取用户基本信息 -->
+    <select id="searchCustomerBaseInfoById" resultType="com.leehuang.his.api.db.entity.CustomerEntity">
+        SELECT id, name, sex, tel, photo, create_time
+            FROM tb_customer
+        WHERE id = #{customerId}
+    </select>
+
+    <insert id="insertCustomer" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tb_customer (
+            username,
+            password,
+            tel
+            <if test="email != null">, email</if>
+            <if test="photo != null">, photo</if>
+        )
+        VALUES (
+            #{username},
+            #{password},
+            #{tel}
+            <if test="email != null">, #{email}</if>
+            <if test="photo != null">, #{photo}</if>
+        )
+    </insert>
+
+    <!-- getCustomerInfo CustomerVO resultMap   -->
+    <resultMap id="CustomerVOResultMap" type="com.leehuang.his.api.front.dto.customer.vo.CustomerVO">
+        <!-- 客户基本信息映射 -->
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="name" column="name"/>
+        <result property="sex" column="sex"/>
+        <result property="tel" column="tel"/>
+        <result property="email" column="email"/>
+        <result property="photo" column="photo"/>
+        <result property="createTime" column="create_time"/>
+
+        <!-- 地址列表映射（一对多关系） -->
+        <collection property="addressList" ofType="com.leehuang.his.api.front.dto.address.vo.AddressVO">
+            <id property="id" column="address_id"/>
+            <result property="name" column="address_name"/>
+            <result property="tel" column="address_tel"/>
+            <result property="province" column="province"/>
+            <result property="city" column="city"/>
+            <result property="district" column="district"/>
+            <result property="regionCodeJson" column="region_code" />
+            <result property="detail" column="detail"/>
+            <result property="isDefault" column="is_default"/>
+        </collection>
+    </resultMap>
+
+    <select id="getCustomerInfo" resultMap="CustomerVOResultMap">
+        SELECT
+            c.id, c.username, c.name, c.sex, c.tel, c.email, c.photo, c.create_time,
+            a.id AS address_id, a.name AS address_name, a.tel AS address_tel,
+            a.province, a.city, a.district, a.region_code, a.detail, a.is_default
+        FROM
+            tb_customer c
+                LEFT JOIN
+            tb_address a ON c.id = a.customer_id
+        WHERE
+            c.id = #{customerId}
+        order by a.is_default DESC, address_id DESC
+    </select>
+
+    <!--  更新用户信息  -->
+    <update id="updateCustomerInfo">
+        update tb_customer set
+                username = #{request.username},
+                name = #{request.name},
+                sex = #{request.sex},
+                email = #{request.email}
+        where id = #{customerId}
+    </update>
+
+    <!--  更新手机号  -->
+    <update id="updateTel">
+        update tb_customer set tel = #{identity} where id = #{customerId}
+    </update>
+
+    <!--  更新密码  -->
+    <update id="updatePassword">
+        update tb_customer set password = #{newPassword} where id = #{customerId}
+    </update>
+
+    <!--  更新照片  -->
+    <update id="updatePhoto">
+        update tb_customer set photo = #{path} where id = #{customerId}
+    </update>
+
+</mapper>

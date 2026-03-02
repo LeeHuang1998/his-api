@@ -1,0 +1,45 @@
+# ======================
+# Maven & Build
+# ======================
+HELP.md
+target/
+build/
+.mvn/wrapper/maven-wrapper.jar
+
+# ======================
+# IDEs
+# ======================
+
+# STS / Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# IntelliJ IDEA
+.idea/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
+
+# ======================
+# OS & Others
+# ======================
+.DS_Store
+Thumbs.db
+# Logs
+logs/
+*.log
+
+#.env
+.env

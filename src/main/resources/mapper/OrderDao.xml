@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.OrderDao">
+
+    <!--  查询当前用户一天内未付款或退款的订单数量  -->
+    <select id="hasIllegalOrder" resultType="java.lang.Boolean">
+        # CASE WHEN：当 create_date 为今天且 status 小于 3（即一天内未付款或关闭的订单），则返回 1，否则返回 NULL，再通过 COUNT 统计 1 的数量（COUNT 只统计非 NULL），下面同理
+        # AND 后面的条件可以提前过滤掉 “完全不相关的记录”，然后再进行统计，减少参与聚合计算的数据量
+        SELECT
+            (COUNT( CASE WHEN create_date = CURDATE() AND status &lt; 3 THEN 1 END) >= 10
+                OR
+            COUNT(CASE WHEN refund_date = CURDATE() AND status = 4 THEN 1 END) >= 5
+            ) AS illegal
+        FROM tb_order
+        WHERE customer_id = #{customerId}
+        AND (
+            (create_date = CURDATE() AND status &lt; 3)
+                OR
+            (refund_date = CURDATE() AND status = 4)
+        )
+    </select>
+
+    <!-- 插入订单数据 -->
+    <insert id="insertOrder">
+        INSERT INTO tb_order (
+            customer_id,
+            goods_id,
+            snapshot_id,
+            address_id,
+            out_trade_no,
+            goods_title,
+            goods_price,
+            number,
+            goods_description,
+            status,
+            total_amount,
+            discount_amount,
+            payable_amount,
+            goods_image,
+            create_date
+        ) VALUES (
+            #{customerId},
+            #{goodsId},
+            #{snapshotId},
+            #{addressId},
+            #{outTradeNo},
+            #{goodsTitle},
+            #{goodsPrice},
+            #{number},
+            #{goodsDescription},
+            #{status},
+            #{totalAmount},
+            #{discountAmount},
+            #{payableAmount},
+            #{goodsImage},
+            CURDATE()
+     )
+    </insert>
+
+    <!--  根据订单流水号查询订单信息  -->
+    <select id="searchOrderByOutTradeNo" resultType="com.leehuang.his.api.db.entity.OrderEntity">
+        select id, customer_id, goods_id, snapshot_id, address_id, number, goods_price, payment_type,
+               order_notes, total_amount, discount_amount, payable_amount, status, create_time
+        from tb_order where out_trade_no = #{outTradeNo}
+    </select>
+
+    <!--  更新订单状态  -->
+    <update id="updateOrderStatus">
+        update tb_order
+            set status = #{targetStatus}
+        <if test="tradeNo!=null || tradeNo!=''">
+            , transaction_id = #{tradeNo}
+        </if>
+        where out_trade_no = #{outTradeNo} and status = #{expectStatus}
+    </update>
+
+    <!--  更新订单状态和地址 id  -->
+    <update id="updatePaymentType">
+        update tb_order
+            set payment_type = #{paymentType}, address_id = #{addressId}
+        where out_trade_no = #{outTradeNo} and status = 1
+    </update>
+
+    <!--  检查订单状态  -->
+    <select id="checkOrderStatus" resultType="java.lang.Integer">
+        select status
+            from tb_order
+        where out_trade_no = #{outTradeNo} and customer_id = #{customerId}
+    </select>
+
+    <!-- 根据条件分页查询数据总数 -->
+    <select id="searchCountByPage" resultType="java.lang.Integer">
+        select count(*) from tb_order where customer_id = #{customerId}
+            <if test="keyword != null and keyword != ''">
+                and (
+                    goods_title like concat('%', #{keyword}, '%') or
+                    goods_description like concat('%', #{keyword}, '%') or
+                    out_trade_no like concat('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="status != null">
+                and status = #{status}
+            </if>
+    </select>
+
+    <!--  根据用户 ID 分页条件查询订单列表
+            子查询中：通过订单号进行表连接，查询出当前用户的所有订单，使用 group by 分组订单号对应的预约数据
+            COALESCE(a.appoint_count, 0)：根据传入的所有值，返回第一个不为 Null 的数据，即 若 appoint_count 为空，则返回 0
+                appoint_count 为空：说明该表中没有该订单号的预约数据，也就无从对其进行统计，结果则为 Null
+     -->
+    <select id="searchOrderListByPage" resultType="com.leehuang.his.api.front.dto.order.vo.OrderListVO">
+        SELECT
+            o.id,
+            o.goods_id,
+            o.snapshot_id,
+            o.goods_title,
+            o.goods_description,
+            o.goods_image,
+            o.out_trade_no,
+            o.number,
+            o.goods_price,
+            o.payable_amount,
+            o.status,
+            o.create_time,
+            COALESCE(a.appoint_count, 0) AS appoint_count
+        FROM tb_order o
+            LEFT JOIN (
+                SELECT a.order_id, COUNT(*) AS appoint_count
+                    FROM tb_appointment a
+                INNER JOIN tb_order o2 ON a.order_id = o2.id
+                WHERE o2.customer_id = #{customerId}
+                GROUP BY a.order_id
+            ) a ON a.order_id = o.id
+        WHERE o.customer_id = #{customerId}
+        <if test="status != null">
+            AND o.status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+            o.goods_title LIKE CONCAT('%', #{keyword}, '%') OR
+            o.out_trade_no LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY o.create_time DESC
+        LIMIT #{start}, #{length}
+    </select>
+
+    <!-- 获取订单的应付金额 -->
+    <select id="getPayableAmount" resultType="java.math.BigDecimal">
+        select payable_amount from tb_order where out_trade_no = #{outTradeNo}
+    </select>
+
+    <!--  查看订单支付信息  -->
+    <select id="searchOrderPayInfo" resultType="com.leehuang.his.api.db.entity.OrderEntity">
+        select id, customer_id, goods_title, out_trade_no, payable_amount, payment_type, status, create_time
+        from tb_order where out_trade_no = #{outTradeNo} and status = 1
+    </select>
+
+    <!--  自动关闭本地订单  -->
+    <update id="autoCloseOrder">
+        <![CDATA[
+        UPDATE tb_order
+        SET status = 2
+        WHERE status = 1
+          AND create_time < DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+        ]]>
+    </update>
+
+    <!-- 手动关闭本地订单 -->
+    <update id="updateStatusToClosed">
+        update tb_order
+            set status = 2
+        where out_trade_no = #{outTradeNo}
+            and status = 1 and payment_type = #{paymentType}
+    </update>
+
+    <!-- 查询超时未支付订单ID列表 -->
+    <select id="selectOverdueOrderIds" resultType="java.lang.Integer">
+        SELECT id
+        FROM tb_order
+        WHERE create_time &lt;= #{deadline}
+          AND status = #{status}
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 批量更新订单状态 -->
+    <update id="batchUpdateOrderStatus">
+        UPDATE tb_order SET status = #{newStatus}, update_time = NOW()
+        WHERE id IN
+        <foreach collection="orderIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND status = #{oldStatus}
+    </update>
+
+    <!--  mis 端订单模块分页数据  -->
+    <select id="searchMisOrderByPage" resultType="com.leehuang.his.api.mis.dto.order.vo.MisOrderPageVO">
+        SELECT
+            o.id,
+            o.goods_title AS goodsTitle,
+            o.goods_price AS goodsPrice,
+            o.snapshot_id AS snapshotId,
+            o.number,
+            o.total_amount AS totalAmount,
+            c.photo,
+            c.name,
+            c.sex,
+            c.tel,
+            c.create_time AS registerTime,
+            o.status,
+            o.out_trade_no AS outTradeNo,
+            o.transaction_id AS transactionId,
+            o.out_refund_no AS outRefundNo,
+            o.create_date AS createDate,
+            o.create_time AS createTime,
+            o.refund_date AS refundDate,
+            o.refund_time AS refundTime,
+        COALESCE(a.appointment_count, 0) AS num
+        FROM tb_order o
+            INNER JOIN tb_customer c ON o.customer_id = c.id
+            INNER JOIN tb_goods g ON o.goods_id = g.id
+        LEFT JOIN (
+            SELECT order_id, COUNT(*) as appointment_count
+                FROM tb_appointment
+            GROUP BY order_id
+        ) a ON o.id = a.order_id
+        <where>
+            <if test="pageRequest.tel != null and pageRequest.tel != ''">
+                AND c.tel = #{pageRequest.tel}
+            </if>
+            <if test="pageRequest.code != null and pageRequest.code != ''">
+                AND g.code = #{pageRequest.code}
+            </if>
+            <if test="pageRequest.outTradeNo != null and pageRequest.outTradeNo != ''">
+                AND o.out_trade_no = #{pageRequest.outTradeNo}
+            </if>
+            <if test="pageRequest.status != null">
+                AND o.status = #{pageRequest.status}
+            </if>
+            <if test="pageRequest.startDate != null and pageRequest.endDate != null">
+                AND o.create_date BETWEEN #{pageRequest.startDate} AND #{pageRequest.endDate}
+            </if>
+            <if test="pageRequest.keyword != null and pageRequest.keyword != ''">
+                AND o.goods_title LIKE CONCAT('%', #{pageRequest.keyword}, '%')
+            </if>
+            <if test="pageRequest.customerId!=null">
+                AND c.id = #{pageRequest.customerId}
+            </if>
+        </where>
+        ORDER BY o.id DESC
+        LIMIT #{start}, #{pageRequest.length}
+    </select>
+
+    <!--  mis 端订单模块分页数据总数  -->
+    <select id="searchMisOrderCountByPage" resultType="java.lang.Long">
+        SELECT COUNT(DISTINCT o.id)
+            FROM tb_order o
+        INNER JOIN tb_customer c ON o.customer_id = c.id
+        INNER JOIN tb_goods g ON o.goods_id = g.id
+        <where>
+            <if test="tel != null and tel != ''">
+                AND c.tel = #{tel}
+            </if>
+            <if test="code != null and code != ''">
+                AND g.code = #{code}
+            </if>
+            <if test="outTradeNo != null and outTradeNo != ''">
+                AND o.out_trade_no = #{outTradeNo}
+            </if>
+            <if test="status != null">
+                AND o.status = #{status}
+            </if>
+            <if test="startDate != null and endDate != null">
+                AND o.create_date BETWEEN #{startDate} AND #{endDate}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND o.goods_title LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="customerId!=null">
+                AND c.id = #{customerId}
+            </if>
+        </where>
+    </select>
+
+    <!-- 获取用户订单统计数据 -->
+    <select id="searchOrderStatistic" resultType="com.leehuang.his.api.mis.dto.customerIm.dto.OrderStatisticDTO">
+        SELECT COUNT(*) AS totalCount,
+               SUM(payable_amount) AS totalAmount,
+               SUM(number) AS number
+        FROM tb_order
+        WHERE customer_id = #{customerId}
+          AND `status` IN (3, 5, 6)
+    </select>
+
+    <!--  查询订单的商品数和订单中已完成的预约数  -->
+    <!--  case 当 status = 3 时返回 1，否则返回 0，用 sum 相加就是订单中完成的预约数  -->
+    <!--  第一个 join：通过 uuid 筛选出数据，此时获取到 uuid 数据对应的 order_id  -->
+    <!--  第二个 join：统计 status = 3 的记录数，第一个 join 只有一条记录，就是 uuid 为传入的参数的记录，
+            此时再与 tb_appointment 表连接，条件为 order_id，那就会出现所有 order_Id 与 uuid 对应的记录
+    -->
+    <select id="searchOrderFinished"
+            resultType="com.leehuang.his.api.mis.dto.order.dto.OrderAppointmentFinishedDTO">
+        SELECT
+            o.id,
+            o.number AS goodsCount,
+            SUM(CASE WHEN a2.status = 3 THEN 1 ELSE 0 END) AS appointmentFinishedCount
+        FROM tb_appointment a1
+                INNER JOIN tb_order o ON o.id = a1.order_id
+                INNER JOIN tb_appointment a2 ON a2.order_id = o.id AND a2.is_deleted = 0
+        WHERE a1.uuid = #{uuid}
+        GROUP BY o.id, o.number;
+    </select>
+
+</mapper>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.AddressDao">
+
+    <!--  添加地址  -->
+    <insert id="insertAddress">
+        insert into tb_address (customer_id, name, tel, province, city, district, region_code, detail, is_default)
+            values (
+                    #{customerId},
+                    #{name},
+                    #{tel},
+                    #{province},
+                    #{city},
+                    #{district},
+                    #{regionCode},
+                    #{detail},
+                    #{isDefault}
+                   )
+    </insert>
+
+    <!--  更新地址  -->
+    <update id="updateAddress">
+        update tb_address set
+            name = #{name},
+            tel = #{tel},
+            province = #{province},
+            city = #{city},
+            district = #{district},
+            region_code = #{regionCode},
+            detail = #{detail}
+        where id = #{id} and customer_id = #{customerId}
+    </update>
+
+    <!--  更新默认地址  -->
+    <update id="updateAddressDefault">
+        UPDATE tb_address
+        SET is_default = CASE WHEN id = #{request.id} THEN #{request.isDefault} ELSE 0 END
+        WHERE customer_id = #{customerId};
+    </update>
+
+    <!--  删除地址  -->
+    <delete id="deleteAddress">
+        delete from tb_address where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        and customer_id = #{customerId}
+    </delete>
+
+    <!-- 获取默认地址   -->
+    <select id="getDefaultAddress" resultType="com.leehuang.his.api.front.dto.address.vo.AddressVO">
+        select id, name, tel, province, city, district, region_code, detail
+            from tb_address
+        where customer_id = #{customerId} and is_default = 1
+    </select>
+
+    <!-- 获取指定地址 -->
+    <select id="getAddressById" resultType="com.leehuang.his.api.front.dto.address.vo.AddressVO">
+        select id, name, tel, province, city, district, region_code, detail
+            from tb_address
+        where id = #{id} and customer_id = #{customerId}
+    </select>
+
+    <!-- 获取用户的地址列表 -->
+    <select id="getAddressListByCustomerId" resultType="com.leehuang.his.api.front.dto.address.vo.AddressVO">
+        select id,
+               name,
+               tel,
+               province,
+               city,
+               district,
+               detail,
+               is_default
+        from tb_address
+        where customer_id = #{customerId}
+        ORDER BY is_default DESC, id;
+    </select>
+
+</mapper>

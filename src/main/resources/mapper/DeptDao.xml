@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.DeptDao">
+
+    <!-- 获取所有部门 -->
+    <select id="getAllDepts" resultType="com.leehuang.his.api.db.entity.DeptEntity">
+        select id, dept_name as deptName  from tb_dept
+            order by id
+    </select>
+
+    <!-- 获取部门数量，由于要统计在职人数，需要连接 tb_user 表 -->
+    <select id="getDeptCount" resultType="java.lang.Long">
+        select count(*) from tb_dept
+        <where>
+            <if test="deptName != null and deptName != ''">
+                and dept_name like concat('%',#{deptName},'%')
+            </if>
+        </where>
+    </select>
+
+    <!-- 分页获取部门 -->
+    <select id="getDeptsByPage" resultType="com.leehuang.his.api.mis.dto.dept.vo.DeptPageVO">
+        select d.id, d.dept_name as deptName, d.tel, d.email, d.`desc`, count(u.id) as emp
+        from tb_dept d left join tb_user u on d.id = u.dept_id and u.status = 1
+        <where>
+            <if test="deptName != null and deptName != ''">
+                and d.dept_name like concat('%',#{deptName},'%')
+            </if>
+        </where>
+        group by d.id
+        limit #{start}, #{length}
+    </select>
+
+    <!-- 添加部门 -->
+    <insert id="insertDept">
+        insert into tb_dept set
+            dept_name = #{deptName}
+        <if test="tel != null || tel != ''">
+            , tel = #{tel}
+        </if>
+        <if test="email != null || email != ''">
+            , email = #{email}
+        </if>
+        <if test="desc != null || desc != ''">
+            , `desc` = #{desc}
+        </if>
+    </insert>
+
+    <!-- 根据 id 获取部门信息 -->
+    <select id="getDeptById" resultType="com.leehuang.his.api.mis.dto.dept.vo.DeptDetailVO">
+        select id, dept_name, tel, email, `desc` from tb_dept where id = #{id}
+    </select>
+
+    <!-- 更新部门信息 -->
+    <update id="updateDept">
+        update tb_dept set
+        dept_name = #{deptName}
+        <if test="tel != null || tel != ''">
+            , tel = #{tel}
+        </if>
+        <if test="email != null || email != ''">
+            , email = #{email}
+        </if>
+        <if test="desc != null || desc != ''">
+            , `desc` = #{desc}
+        </if>
+        where id = #{id}
+    </update>
+
+    <!-- 判断部门是否可以删除，可以返回 1，不可以返回 0 -->
+    <select id="selectCanDelDept" resultType="java.lang.Boolean">
+        SELECT NOT EXISTS (
+            SELECT 1 FROM tb_user u
+            WHERE u.dept_id IN
+        <foreach collection="ids" separator="," open="(" close=")" item="id">
+            #{id}
+        </foreach>
+        ) AS result
+    </select>
+
+    <delete id="deleteDeptByIds">
+        delete from tb_dept where id in
+            <foreach collection="ids" separator="," open="(" close=")" item="id">
+                #{id}
+            </foreach>
+    </delete>
+
+
+</mapper>

@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.AppointmentDao">
+
+    <!-- mis 端 order 模块, 根据订单 id 获取预约信息 -->
+    <select id="searchByOrderId" resultType="com.leehuang.his.api.mis.dto.appointment.vo.OrderPageAppointmentVO">
+        SELECT id,
+               name,
+               sex,
+               tel,
+               TIMESTAMPDIFF(YEAR,birthday,NOW()) AS age,
+               appointment_date,
+               status
+        FROM tb_appointment
+        WHERE order_id = #{id}
+        AND is_deleted = 0
+        ORDER BY id DESC
+    </select>
+
+    <!-- front 端分页查询用户预约信息 -->
+    <select id="searchAppointmentByPage"
+            resultType="com.leehuang.his.api.front.dto.appointment.vo.AppointmentPageVO">
+        SELECT
+            a.id,
+            o.goods_title AS goodsTitle,
+            a.name,
+            a.appointment_date,
+            a.status,
+            r.file_path AS filePath
+        FROM tb_appointment a
+        JOIN tb_order o ON a.order_id = o.id
+        LEFT JOIN tb_checkup_report r ON a.id = r.appointment_id
+        WHERE o.customer_id = #{customerId}
+        AND a.is_deleted = 0
+        <if test="request.status!=null">
+            AND a.status = #{request.status}
+        </if>
+        <if test="request.appointmentDate!=null">
+            AND a.appointment_date = #{request.appointmentDate}
+        </if>
+        <if test="request.keyword!=null">
+            AND (
+            o.goods_title LIKE CONCAT( "%", #{request.keyword}, "%" ) OR
+            a.`name` = #{request.keyword} OR
+            a.tel = #{request.keyword}
+            )
+        </if>
+        ORDER BY a.id DESC
+        LIMIT #{start}, #{length}
+    </select>
+
+    <!--  front 端分页查询用户体检信息总数  -->
+    <select id="searchAppointmentCountByPage" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM tb_appointment a
+        INNER JOIN tb_order o ON a.order_id = o.id
+        WHERE o.customer_id = #{customerId}
+        AND a.is_deleted = 0
+        <if test="request.status != null">
+            AND a.status = #{request.status}
+        </if>
+        <if test="request.appointmentDate != null">
+            AND a.appointment_date = #{request.appointmentDate}
+        </if>
+        <if test="request.keyword != null">
+            AND (
+                o.goods_title LIKE CONCAT('%', #{request.keyword}, '%')
+                OR a.name = #{request.keyword}
+                OR a.tel = #{request.keyword}
+            )
+        </if>
+    </select>
+
+    <!-- mis 端分页查询用户预约信息 -->
+    <select id="searchAppointmentByPageForMis"
+            resultType="com.leehuang.his.api.mis.dto.appointment.vo.AppointmentVO">
+        SELECT a.id,
+            a.name,
+            a.appointment_date,
+            a.sex,
+            a.tel,
+            a.pid,
+            a.appointment_desc as `desc`,
+            a.status,
+            o.goods_title AS goodsTitle,
+            o.snapshot_id AS snapshotId
+        FROM tb_appointment a
+        INNER JOIN tb_order o ON a.order_id = o.id
+        <where>
+            a.is_deleted = 0
+            <if test="request.appointmentDate!=null">
+                AND a.appointment_date = #{request.appointmentDate}
+            </if>
+            <if test="request.name!=null">
+                AND a.name LIKE CONCAT("%",#{request.name},"%")
+            </if>
+            <if test="request.tel!=null">
+                AND a.tel = #{request.tel}
+            </if>
+            <if test="request.status!=null">
+                AND a.status = #{request.status}
+            </if>
+        </where>
+        ORDER BY a.id DESC
+        LIMIT #{start}, #{length}
+    </select>
+
+    <!-- mis 端分页查询用户预约信息总数 -->
+    <select id="searchAppointmentCountByPageForMis" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM tb_appointment a
+        INNER JOIN tb_order o ON a.order_id = o.id
+        <where>
+            a.is_deleted = 0
+            <if test="appointmentDate!=null">
+                AND a.appointment_date = #{appointmentDate}
+            </if>
+            <if test="name!=null">
+                AND a.name LIKE CONCAT("%",#{name},"%")
+            </if>
+            <if test="tel!=null">
+                AND a.tel = #{tel}
+            </if>
+            <if test="status!=null">
+                AND a.status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!--  mis 端批量软删除预约信息  -->
+    <update id="deleteAppointmentByIds">
+        UPDATE tb_appointment
+        SET is_deleted = 1,
+        deleted_time = NOW()
+        WHERE status = 1
+        AND is_deleted = 0
+        AND id IN
+        <foreach collection="ids" open="(" separator="," close=")" item="id">
+            #{id}
+        </foreach>
+        LIMIT 500
+    </update>
+
+    <!--  mis 端查询体检快照信息  -->
+    <select id="searchAppointmentSnapshotInfo"
+            resultType="com.leehuang.his.api.mis.dto.appointment.dto.AppointmentSnapshotDTO">
+        SELECT a.uuid,
+               o.snapshot_id AS snapshotId
+        FROM tb_appointment a
+            INNER JOIN tb_order o ON a.order_id = o.id
+        WHERE
+            a.appointment_date = #{currentDate} AND a.pid = #{pid}
+
+    </select>
+
+    <!--  mis 端查询引导单体检人摘要信息  -->
+    <select id="searchGuidanceSummaryInfo"
+            resultType="com.leehuang.his.api.mis.dto.appointment.dto.GuidanceSummaryInfoVO">
+        SELECT a.uuid,
+               a.order_id,
+               o.snapshot_id,
+               a.name,
+               a.sex,
+               a.birthday,
+               a.pid,
+               a.tel,
+               a.appointment_date,
+               a.appointment_desc as `desc`
+        FROM tb_appointment a
+        INNER JOIN tb_order o ON a.order_id = o.id
+        WHERE a.id = #{appointmentId}
+    </select>
+
+    <!--  mis 端医生检查页面客户摘要信息  -->
+    <select id="searchCustomerSummaryInfoByUuid"
+            resultType="com.leehuang.his.api.mis.dto.appointment.vo.CustomerSummaryInfoVO">
+        SELECT a.`name`,
+               a.sex,
+               a.birthday,
+               a.tel,
+               a.uuid,
+               a.pid,
+               a.appointment_date,
+               a.checkin_time,
+               a.`status`,
+               o.snapshot_id AS snapshotId
+        FROM tb_appointment a
+            INNER JOIN tb_order o ON a.order_id = o.id
+        WHERE a.uuid = #{uuid}
+    </select>
+
+</mapper>

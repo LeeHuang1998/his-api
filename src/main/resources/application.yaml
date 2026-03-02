@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: his-api
+  profiles:
+    active: dev
+    include: cache,database,mq,oauth,oss,thirdparty,security
+  servlet:
+    multipart:
+      # 允许上传文件
+      enabled: true
+      # 文件上传最大大小
+      max-file-size: 20MB
+      # 单个请求最大大小
+      max-request-size: 20MB
+
+server:
+  jetty:
+    threads:
+      # acceptors：线程池接收 HTTP 请求
+      acceptors: 8
+      # selectors：线程池解析 HTTP 请求体
+      selectors: 16
+      # workers 线程池处理请求，调用 web 方法
+      min: 8
+      max: 256
+  port: 7700
+  servlet:
+    context-path: /his-api
+  # 数字证书相关配置
+#  ssl:
+#    enabled: true
+#    key-store-type: PKCS12
+#    key-store: classpath:keystore.p12
+#    key-store-password: abc123456
+
+# 雪花算法工作节点 ID 和 数据中心 ID
+app:
+  snowflake:
+    worker-id: 0        # 工作节点ID（0~31），单机默认 0；容器启动时通过 -Dworker.id=N 覆盖
+    datacenter-id: 0    # 数据中心ID（0~31），机房编号，写死或配置中心
+  order:
+    overdue-minutes: 30     # 订单超时时间（分钟）
+    batch-size: 1000        # 每次处理数量

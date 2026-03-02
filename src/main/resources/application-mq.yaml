@@ -1,0 +1,10 @@
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: root
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: /               # 默认 vhost
+    listener:
+      simple:
+        acknowledge-mode: manual  # 手动 ACK（非常重要，保证可靠性）

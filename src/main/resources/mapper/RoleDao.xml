@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.RoleDao">
+
+    <!-- 查询所有角色 -->
+    <select id="getAllRoles" resultType="com.leehuang.his.api.db.entity.RoleEntity">
+        select id, role_name from tb_role
+            order by id
+    </select>
+
+    <!-- 获取角色数量 -->
+    <select id="getRoleCount" resultType="java.lang.Integer">
+        select count(*) from tb_role
+        <where>
+            <if test="roleName != null and roleName != ''">
+                and role_name like concat('%', #{roleName}, '%')
+            </if>
+        </where>
+    </select>
+
+    <!-- 分页查询角色数据 -->
+    <select id="getRoleDataByPage" resultType="com.leehuang.his.api.mis.dto.role.vo.RolePageVO">
+        select r.id, r.role_name as roleName, JSON_LENGTH(r.permissions) as permissions, count(u.id) as users, r.`desc`, r.systemic
+            from tb_role r
+            left join tb_user u on JSON_CONTAINS(u.role, CAST(r.id as char ))
+        <where>
+            <if test="roleName != null and roleName != ''">
+                and r.role_name like concat('%', #{roleName}, '%')
+            </if>
+        </where>
+        group by r.id
+        order by r.id
+        limit #{start}, #{length}
+    </select>
+
+    <!-- 添加角色 -->
+    <insert id="insertRole">
+        insert into tb_role set
+            role_name = #{roleName},
+            permissions = #{permissions}
+        <if test="desc != null || desc != ''">
+            , `desc` = #{desc}
+        </if>
+    </insert>
+
+    <!-- 根据 id 查询角色权限 -->
+    <select id="getRolePermissionById"
+            resultType="com.leehuang.his.api.mis.dto.role.vo.PermissionsVO">
+        select p.id, m.module_name as moduleName, a.action_name as actionName from tb_permission p
+               left join tb_module m on p.module_id = m.id
+               left join tb_action a on p.action_id = a.id
+               JOIN tb_role r ON r.id = #{id}
+        WHERE JSON_CONTAINS(r.permissions, CAST(p.id AS CHAR))
+        order by p.id;
+    </select>
+
+    <!-- 根据 id 查询角色 -->
+    <select id="getRoleById" resultType="com.leehuang.his.api.db.entity.RoleEntity">
+        select id, role_name as roleName, permissions, default_permissions as defaultPermissions, `desc`, systemic
+            from tb_role where id = #{id}
+    </select>
+
+    <!-- 修改角色 -->
+    <update id="updateRole">
+        update tb_role set
+            role_name = #{roleName},
+            permissions = #{permissions},
+            `desc` = #{desc}
+        where id = #{id} and id != 0;
+    </update>
+
+    <!-- 根据 id 查询角色 -->
+    <select id="getUserIdByRoleId" resultType="java.lang.Integer">
+        select id from tb_user where JSON_CONTAINS(role, CAST(#{roleId} as char ))
+    </select>
+
+    <!-- 查询是否可以删除 -->
+    <select id="selectCanDelRole" resultType="java.lang.Boolean">
+        SELECT NOT EXISTS (
+            SELECT 1
+                FROM tb_role r
+                JOIN tb_user u ON JSON_CONTAINS(u.role, CAST(r.id AS CHAR))
+            WHERE r.id IN
+            <foreach collection="ids" open="(" separator="," close=")" item="id">
+                #{id}
+            </foreach>
+            LIMIT 1
+        ) AS result
+    </select>
+
+    <!-- 删除角色 -->
+    <delete id="deleteRole">
+        delete from tb_role where id in
+            <foreach collection="ids" open="(" separator="," close=")" item="id">
+                #{id}
+            </foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,34 @@
+aliyun:
+  access-key-id: ${ALIYUN_ACCESS_KEY_ID}
+  access-key-secret: ${ALIYUN_ACCESS_KEY_SECRET}
+  sms:
+    endpoint: dypnsapi.aliyuncs.com
+    sign-name: 速通互联验证码
+    template-code: 100001
+    expire-minutes: 5    # 验证码有效期（分钟）
+
+alipay:
+  app-id: ${ALIPAY_APP_ID}                                                         # 沙箱 APPID
+  gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do                       # 沙箱网关地址
+  notify-url: http://h6a85a39.natappfree.cc/his-api/front/pay/notify                 # 支付成功后的回调地址
+  return-url: http://h6a85a39.natappfree.cc/return                                   # 支付成功后跳转的页面，不是必须项
+  sign-type: RSA2                                                                   # 签名方式，即指定签名算法类型，必须为 RSA2
+  charset: utf-8                                                                    # 指定请求和响应的字符编码，必须为 UTF-8
+  format: json                                                                      # 指定 API 请求和响应的数据格式
+  # 应用私钥
+  merchant-private-key: ${ALIPAY_PRIVATE_KEY}
+  # 支付宝公钥
+  alipay-public-key: ${ALIPAY_PUBLIC_KEY}
+
+tencent:
+  im:
+    sdkAppId: 1600115809
+    secretKey: ${TENCENT_IM_SECRET_KEY}
+    managerId: his_administrator
+    customerServiceId: customer_service_1
+  cloud:
+    secret-id: ${TENCENT_CLOUD_SECRET_ID}
+    secret-key: ${TENCENT_CLOUD_SECRET_KEY}
+    face:
+      region: ap-guangzhou
+      group-id: HIS

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leehuang.his.api.db.dao.CustomerThirdPartyDao">
+
+    <!--  根据 openId 和 platform 查找用户  -->
+    <select id="findByOpenIdAndPlatform" resultType="com.leehuang.his.api.db.entity.CustomerThirdPartyEntity">
+        select id, customer_id, platform, open_id, nickname, avatar, remark, create_time, update_time from tb_customer_third_party
+            where open_id = #{openId} and platform = #{platform}
+    </select>
+
+    <!--  根据 tel 和 platform 查找用户  -->
+    <select id="searchByTelAndPlatform" resultType="com.leehuang.his.api.front.dto.customer.CustomerBindDTO">
+        SELECT c.id AS customerId, t.id AS thirdPartyId
+            FROM tb_customer AS c
+        LEFT JOIN tb_customer_third_party AS t
+            ON t.customer_id = c.id
+            AND t.platform  = #{platform}
+        WHERE c.tel = #{phoneNum};
+    </select>
+
+    <!--  插入第三方平台用户绑定数据  -->
+    <insert id="insertThirdPartyCustomer">
+        insert into tb_customer_third_party (
+            customer_id,
+            platform,
+            open_id
+            <if test="nickname != null and nickname != ''"> , nickname </if>
+            <if test="avatar != null and avatar != ''"> , avatar </if>
+            <if test="remark != null and remark != ''"> , remark </if>
+        )
+        values (
+            #{customerId},
+            #{platform},
+            #{openId}
+            <if test="nickname != null and nickname != ''"> , #{nickname} </if>
+            <if test="avatar != null and avatar != ''"> , #{avatar} </if>
+            <if test="remark != null and remark != ''"> , #{remark} </if>
+        )
+    </insert>
+
+</mapper>

@@ -9,9 +9,7 @@ import com.leehuang.his.api.mis.dto.flowRegulation.request.FlowRegulationRequest
 import com.leehuang.his.api.mis.dto.flowRegulation.vo.FlowRegulationPageVO;
 import com.leehuang.his.api.mis.dto.flowRegulation.vo.PlaceVO;
 import com.leehuang.his.api.mis.dto.flowRegulation.vo.RealTimeQueueDataVO;
-import com.leehuang.his.api.mis.dto.system.request.SystemRequest;
 
-import javax.validation.constraints.NotEmpty;
 import java.util.List;
 
 public interface MisFlowRegulationService extends IService<FlowRegulationEntity> {

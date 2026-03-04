@@ -222,7 +222,7 @@ public class MisFlowRegulationServiceImpl extends ServiceImpl<FlowRegulationDao,
             String queueKey = FlowRegulationConstants.QUEUE_MAP_PREFIX + uuid + ":" + placeId;
 
             // 根据 queueKey 查询当前体检单的排队状态，如果状态为 PENDING，则说明该体检单正在排队中，可以进行调流操作
-            // 4.2 原子执行 redis 操作：当前科室排队人数 -1
+            // 4.2 原子执行 redis 操作：当前科室排队人数 -1，且删除排队人员，标记排队状态为 DONE（mq consumer 中做幂等操作，若已提交体检结果，等待消息过期后 ack 即可）
             String lua = "if redis.call('GET', KEYS[1]) == 'PENDING' then " +          // 若体检单的状态为 PENDING，则执行如下操作
                     " redis.call('ZINCRBY', KEYS[2], -1, ARGV[1]); " +                 // 给 member 为 ARGV[1] 的排队人数 -1
                     " redis.call('ZREM', KEYS[3], ARGV[2]); " +                        // 从 ZSet 排队人员姓名队列中删除该排队人员
@@ -244,6 +244,9 @@ public class MisFlowRegulationServiceImpl extends ServiceImpl<FlowRegulationDao,
 
             if (decremented != null && decremented == 1) {
                 log.info("体检单 {} 完成科室 {}，排队人数 -1", uuid, finishedPlace);
+            } else {
+                log.error("体检单：【{}】， 体检科室：【{}】，提交体检结果操作失败，排队人数 -1 失败，lua 执行结果 decremented = {}", uuid, finishedPlace, decremented);
+                throw new HisException("体检单【" + uuid + "】，体检科室 " + finishedPlace + " 提交体检结果操作失败");
             }
         }
 
@@ -652,7 +655,7 @@ public class MisFlowRegulationServiceImpl extends ServiceImpl<FlowRegulationDao,
         FlowRegulationEntity flowRegulationEntity = (FlowRegulationEntity) redisTemplate.opsForHash()
                 .get(FlowRegulationConstants.FLOW_REGULATION, id.toString());
 
-        // 2.2 redis 未找到，从数据库中查询
+        // 2.2 redis 未找到科室数据，从数据库中查询
         if (flowRegulationEntity == null) {
             flowRegulationEntity = flowRegulationDao.selectById(id);
 
@@ -719,6 +722,66 @@ public class MisFlowRegulationServiceImpl extends ServiceImpl<FlowRegulationDao,
             }
         } catch (Exception e) {
             log.error("手动添加排队人员 addQueuePerson，延迟消息发送失败，本次排队人数可能无法自动回收，place={}, uuid={}", flowRegulationEntity.getPlace(), uuid, e);
+        }
+        return true;
+    }
+
+    /**
+     * 科室跳过指定排队人员
+     * @param id        科室 id
+     * @param uuid      体检单唯一编号
+     * @return
+     */
+    @Override
+    public Boolean skipQueuePerson(Integer id, String uuid) {
+
+        // 1. 从数据库中获取体检人信息
+        @SuppressWarnings("unchecked")
+        AppointmentEntity appointmentEntity = appointmentDao
+                .selectOne(new LambdaQueryWrapper<AppointmentEntity>()
+                        .select(AppointmentEntity::getName)
+                        .eq(AppointmentEntity::getUuid, uuid));
+
+        if (appointmentEntity == null) {
+            throw new HisException("未找到体检人信息");
+        }
+
+        // 2. 从 redis 中移除该体检人数据，给对应科室的排队人数 -1,标记排队状态为 DONE
+        String lua =
+                " local exists = redis.call('ZSCORE', KEYS[3], ARGV[2]) " +       // 判断该体检单客户是否在该科室的排队队列中，exist 为 false 时表示该 member 不存在
+                " if not exists then " +                                          // 不存在则返回 nil，redis.call 会将 Redis 的 nil 回复转换为 Lua 的 false
+                "   return -1; " +
+                " end; " +
+                " if redis.call('GET', KEYS[1]) == 'PENDING' then " +              // 若体检单的状态为 PENDING，则执行如下操作
+                " redis.call('ZINCRBY', KEYS[2], -1, ARGV[1]); " +                 // 给 member 为 ARGV[1] 的排队人数 -1
+                " redis.call('ZREM', KEYS[3], ARGV[2]); " +                        // 从 ZSet 排队人员姓名队列中删除该排队人员
+                " redis.call('SET', KEYS[1], 'DONE', 'EX', 600); " +               // 标记为 DONE，防止 MQ 再次回收
+                " return 1; " +
+                " else return 0; end";
+
+        // result 的值：1 表示脚本执行成功，0 表示排队状态不为 "PENDING"，-1 表示该人员不在本科室的排队队列中，null 表示 Lua 脚本执行失败或返回 null
+        Long result = stringRedisTemplate.execute(
+                new DefaultRedisScript<>(lua, Long.class),
+                Arrays.asList(                                                      // lua 脚本中的 KEYS
+                        FlowRegulationConstants.QUEUE_MAP_PREFIX + uuid + ":" + id,
+                        FlowRegulationConstants.FLOW_PLACE_RANK,
+                        FlowRegulationConstants.FLOW_REGULATION_QUEUE_PREFIX + id
+                ),
+                id.toString(),                                           // lua 脚本中的 ARGV
+                uuid + ":" + appointmentEntity.getName()
+        );
+
+        if (result != null && result == 1L) {
+            log.info("体检单：【{}】，该人员移除排队队列，科室id: {} 排队人数 -1", uuid, id);
+        } else if (result != null && result == -1L) {
+            log.debug("体检单：【{}】，该人员不在排队队列中，科室id: {}", uuid, id);
+            throw new HisException("体检单【" + uuid + "】，该人员不在本科室的排队队列中");
+        } else if (result != null && result == 0L) {
+            log.debug("体检单：【{}】，该人员排队状态不为 PENDING，科室id: {}", uuid, id);
+            throw new HisException("体检单【" + uuid + "】已处理，无法重复过号");
+        } else {
+            log.error("科室id: {}，体检单:【{}】，该人员移除排队队列失败，", id, uuid);
+            throw new HisException("体检单：【" + uuid + "】，该客户过号失败，请联系管理员");
         }
         return true;
     }

@@ -43,7 +43,7 @@ public class QueueTimeoutConsumer {
             String lua = "if redis.call('GET', KEYS[1]) == 'PENDING' then " +               // 只有当前体检人的排队状态为 PENDING 时，才执行下面的操作
                     "  redis.call('ZINCRBY', KEYS[2], -1, ARGV[1]); " +                     // 排队人数 -1
                     "  redis.call('ZREM', KEYS[3], ARGV[2]); " +                            // 从排队人员姓名队列中移除指定的排队人姓名
-                    "  redis.call('SET', KEYS[1], 'DONE', 'EX', 600); " +                   // 排队消息标记为 DONE，防止重复回收
+                    "  redis.call('SET', KEYS[1], 'DONE', 'EX', 600); " +                   // 排队消息标记为 DONE，防止重复回收，若不存在会自动新建该 key 且 value 为 DONE
                     "  return 1; " +                                                        // 成功返回 1，否则返回 0
                     "else return 0; end";
 

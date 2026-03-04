@@ -49,6 +49,9 @@ public interface MisFlowRegulationService extends IService<FlowRegulationEntity>
     // 给指定科室添加排队人员
     Boolean addQueuePerson(Integer id, String uuid);
 
+    // 科室中跳过指定的排队人员
+    Boolean skipQueuePerson(Integer id, String uuid);
+
     // 删除或批量删除科室调流规则
     int deleteFlowRegulation(Integer[] ids);
 
@@ -60,4 +63,5 @@ public interface MisFlowRegulationService extends IService<FlowRegulationEntity>
 
     // 修改调流模式
     int changeFlowRegulationMode(String value);
+
 }

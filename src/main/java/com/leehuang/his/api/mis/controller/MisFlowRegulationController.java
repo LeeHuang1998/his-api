@@ -51,7 +51,6 @@ public class MisFlowRegulationController {
     public R searchFlowRegulationMode() {
         boolean mode = misFlowRegulationService.searchFlowRegulationMode("auto_flow_regulation");
         return R.OK().put("mode", mode);
-
     }
 
     /**
@@ -146,6 +145,13 @@ public class MisFlowRegulationController {
     @SaCheckLogin
     public R addQueuePerson(@PathVariable Integer id, @PathVariable String uuid) {
         Boolean result =  misFlowRegulationService.addQueuePerson(id, uuid);
+        return R.OK().put("result", result);
+    }
+
+    @GetMapping("/skipQueuePerson/{id}/{uuid}")
+    @SaCheckLogin
+    public R skipQueuePerson(@PathVariable Integer id, @PathVariable String uuid) {
+        Boolean result =  misFlowRegulationService.skipQueuePerson(id, uuid);
         return R.OK().put("result", result);
     }
 

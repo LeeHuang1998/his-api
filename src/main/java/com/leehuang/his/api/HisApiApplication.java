@@ -40,9 +40,4 @@ public class HisApiApplication {
     public void init() {
         initializeWorkAsync.initCacheAppointmentData();
     }
-
-    @PostConstruct
-    public void checkEnv() {
-        System.out.println("MYSQL_ROOT_PASSWORD = " + System.getenv("MYSQL_ROOT_PASSWORD"));
-    }
 }

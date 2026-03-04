@@ -68,7 +68,7 @@ public class SystemServiceImpl extends ServiceImpl<SystemDao, SystemEntity> impl
             return entity.getValue();
         } else {
             // 数据库中也不存在，在缓存中标记为 __NULL__，若下次再有该不存在于数据库中的 item 则会在上面直接抛异常，避免多次查询数据库
-            redisTemplate.opsForValue().set(cacheKey, NULL_VALUE, 3, TimeUnit.DAYS);
+            redisTemplate.opsForValue().set(cacheKey, NULL_VALUE, 3, TimeUnit.HOURS);
             log.error("未找到设置项：{}", item);
             throw new HisException("未找到该设置项，请联系管理员");
         }

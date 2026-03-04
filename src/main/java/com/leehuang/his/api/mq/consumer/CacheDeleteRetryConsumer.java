@@ -44,12 +44,14 @@ public class CacheDeleteRetryConsumer {
                         "cache.delete.retry.delay",                    // 路由键（与绑定一致）
                         message,
                         msg -> {
-                            msg.getMessageProperties().setExpiration(String.valueOf(10)); // 消息级TTL
+                            msg.getMessageProperties().setExpiration(String.valueOf(10000)); // 消息级TTL
                             return msg;
                         });
                 log.warn("重新尝试删除 cacheKey: {}, 重试次数: {}", cacheKey, message.getRetryCount());
             } else {
                 log.error("缓存删除失败，重试已达最大次数，cacheKey: {}", cacheKey);
+                // 告警机制（用抛出异常替代）
+                throw new HisException("缓存【" + message.getCacheKey() + "】删除失败，重试已达最大次数，请联系管理员");
             }
         }
     }

@@ -29,7 +29,7 @@ public class SystemServiceImpl extends ServiceImpl<SystemDao, SystemEntity> impl
 
     private final CacheDeleteRetryDelayProducer delayProducer;
 
-    private static final String CACHE_KEY_PREFIX = "setting#";
+    private static final String CACHE_KEY_PREFIX = "setting:";
 
     // 防御多次重复请求一个不存在的 item 缓存中无数据时，查询数据库，避免数据库被压垮
     private static final String NULL_VALUE = "__NULL__";

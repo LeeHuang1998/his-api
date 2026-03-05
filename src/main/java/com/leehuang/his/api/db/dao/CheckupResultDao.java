@@ -30,7 +30,7 @@ public class CheckupResultDao {
      * @param checkup       本次体检的体检项
      * @return
      */
-    public boolean insert(String uuid, String name, List<CheckupVO> checkup) {
+    public String insert(String uuid, String name, List<CheckupVO> checkup) {
         CheckupResultEntity entity = new CheckupResultEntity();
 
         entity.setUuid(uuid);
@@ -43,7 +43,7 @@ public class CheckupResultDao {
         //添加新记录
         entity = mongoTemplate.insert(entity);
 
-        return entity.get_id() != null;
+        return entity.get_id();
     }
 
     /**

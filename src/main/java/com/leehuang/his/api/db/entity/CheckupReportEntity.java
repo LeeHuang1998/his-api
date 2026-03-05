@@ -1,6 +1,8 @@
 package com.leehuang.his.api.db.entity;
 
 import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -25,9 +27,9 @@ public class CheckupReportEntity implements Serializable {
 
     private String waybillDate;
 
-    private String date;
+    private LocalDate date;
 
-    private String createTime;
+    private LocalDateTime createTime;
 
     private static final long serialVersionUID = 1L;
 }

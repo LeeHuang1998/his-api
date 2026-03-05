@@ -6,13 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Objects;
+
 
 @Slf4j
 @Component
@@ -28,12 +28,12 @@ public class AppointmentJobHandler {
     @XxlJob("cacheAppointmentDataJobHandler")
     public void cacheAppointmentData() {
         // 默认数据
-        String value = redisTemplate.opsForValue().get("setting#appointment_number");
+        String value = redisTemplate.opsForValue().get("setting:appointment_number");
         int maxNum = value != null ? Integer.parseInt(value) : 200;
         int realNum = 0;
 
         LocalDate cacheDate = LocalDate.now().plusDays(32);
-        String key = "appointment#" + cacheDate;
+        String key = "his:appointment:" + cacheDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
 
         // 缓存数据
         redisTemplate.opsForHash().putAll(key, new HashMap<String, Object>() {{

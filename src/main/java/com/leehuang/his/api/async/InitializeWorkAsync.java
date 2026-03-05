@@ -6,16 +6,10 @@ import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.map.MapUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leehuang.his.api.db.dao.AppointmentRestrictionDao;
-import com.leehuang.his.api.db.dao.FlowRegulationDao;
 import com.leehuang.his.api.db.dao.SystemDao;
 import com.leehuang.his.api.db.entity.AppointmentRestrictionEntity;
-import com.leehuang.his.api.db.entity.FlowRegulationEntity;
 import com.leehuang.his.api.db.entity.SystemEntity;
-import com.leehuang.his.api.exception.HisException;
 import com.leehuang.his.api.handler.FlowRegulationJobHandler;
 
 import lombok.RequiredArgsConstructor;
@@ -25,7 +19,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -77,7 +70,7 @@ public class InitializeWorkAsync {
 
         Map<String, String> map = new HashMap<>(list.size());
         for (SystemEntity entity : list) {
-            map.put("setting#" + entity.getItem(), entity.getValue());
+            map.put("setting:" + entity.getItem(), entity.getValue());
         }
 
         // 2. 将设置数据存入缓存，使用 multiSet 批量插入，减少网络 IO
@@ -122,7 +115,7 @@ public class InitializeWorkAsync {
             LocalDate currentLocalDate = currentDate.toLocalDateTime().toLocalDate();
 
             // 4.2 从缓存中取出设置的每天限制值（若没有设置预约人数，则使用默认值）
-            String value = redisTemplate.opsForValue().get("setting#appointment_number");
+            String value = redisTemplate.opsForValue().get("setting:appointment_number");
             int maxNum = value != null ? Integer.parseInt(value) : 200;                     // 提供默认值
             // 实际预约人数
             int realNum = 0;
@@ -139,7 +132,7 @@ public class InitializeWorkAsync {
             HashMap<String, Object> cache = new HashMap<>();
             cache.put("maxNum", String.valueOf(maxNum));
             cache.put("realNum", String.valueOf(realNum));
-            String key = "appointment#" + currentDate.toDateStr();
+            String key = "his:appointment:" + currentDate.toDateStr();
             redisTemplate.opsForHash().putAll(key, cache);
 
             // 设置缓存过期时间为当前日期的下一天凌晨

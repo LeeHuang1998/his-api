@@ -21,6 +21,7 @@ build/
 
 # IntelliJ IDEA
 .idea/
+src/test/java/com/leehuang/his/api/debug/
 
 # NetBeans
 /nbproject/private/
@@ -43,3 +44,8 @@ logs/
 
 #.env
 .env
+
+keystore.p12
+*.p12
+*.jks
+*.pkcs12

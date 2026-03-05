@@ -11,6 +11,7 @@ import com.leehuang.his.api.common.enums.CheckInStatusEnum;
 import com.leehuang.his.api.common.utils.QrCodeUtil;
 import com.leehuang.his.api.db.dao.*;
 import com.leehuang.his.api.db.entity.AppointmentEntity;
+import com.leehuang.his.api.db.entity.CheckupReportEntity;
 import com.leehuang.his.api.db.entity.FlowRegulationEntity;
 import com.leehuang.his.api.db.entity.OrderEntity;
 import com.leehuang.his.api.db.pojo.CheckupResultEntity;
@@ -155,22 +156,24 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
         String sex = IdcardUtil.getGenderByIdCard(pid) == 1 ? "男" : "女";
 
         // 判断当前客户今日是否已经签到过
-        Long count = appointmentDao.selectCount(new LambdaQueryWrapper<AppointmentEntity>()
+        AppointmentEntity appointmentEntity = appointmentDao.selectOne(new LambdaQueryWrapper<AppointmentEntity>()
                 .eq(AppointmentEntity::getPid, pid)
                 .eq(AppointmentEntity::getAppointmentDate, LocalDate.now())
                 .isNotNull(AppointmentEntity::getCheckinTime)
         );
 
-        if (count == 1) {
-            throw new HisException("该用户今日已经签到过，请勿重复签到");
-        } else if (count > 1) {
-            throw new HisException("数据库异常，请联系管理员");
+        if (appointmentEntity == null) {
+            throw new HisException("没有找到客户预约数据，请确认该客户是否预约");
+        } else if (Objects.equals(appointmentEntity.getStatus(), CheckInStatusEnum.CHECK_IN.getCode())) {
+            throw new HisException("该客户已经签到，请勿重复签到");
+        } else if (Objects.equals(appointmentEntity.getStatus(), CheckInStatusEnum.CHECK_FINISHED.getCode())) {
+            throw new HisException("该客户已经体检完毕，请勿重复签到");
+        } else if (Objects.equals(appointmentEntity.getStatus(), CheckInStatusEnum.CHECK_CLOSED.getCode())) {
+            throw new HisException("该客户体检已关闭，请勿签到");
         }
 
-        // 1. 身份证找和拍摄图片，执行人脸识别
+        // 1. 传入身份证照和拍摄图片到腾讯云人脸识别接口，执行人脸对比 + 静态活体识别
         boolean verifyResult = faceIAIUtil.verifyFaceModel(personName, pid, gender, idCardImage, cameraPhoto);
-
-        AppointmentCheckinVO checkinVO = new AppointmentCheckinVO();
 
         // 2. 人脸识别成功，更新数据库信息
         if (verifyResult) {
@@ -212,13 +215,23 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
                     .collect(Collectors.toList());
 
             // 3.2 生成体检结果快照
-            boolean insertResult = checkupResultDao.insert(snapshotDTO.getUuid(), personName, checkupVOList);
-            if (!insertResult) {
+            String _id = checkupResultDao.insert(snapshotDTO.getUuid(), personName, checkupVOList);
+            if (_id == null || _id.isBlank()) {
                 throw new HisException("生成体检结果快照失败");
             }
 
+            // 3.3 插入数据到 tb_checkup_report 表中
+            CheckupReportEntity reportEntity = new CheckupReportEntity();
+            reportEntity.setAppointmentId(appointmentEntity.getId());
+            reportEntity.setResultId(_id);
+            reportEntity.setStatus(1);
+            reportEntity.setDate(LocalDate.now());
+            reportEntity.setCreateTime(LocalDateTime.now());
+
             // 4. 获取当前推荐的科室，签到时肯定没有做过任何检查，所以下一个科室需要排队，传入 true
             NextPlaceVO dto = misFlowRegulationService.recommendNextPlace(snapshotDTO.getUuid(), true);
+
+            AppointmentCheckinVO checkinVO = new AppointmentCheckinVO();
             checkinVO.setCheckinResult(true);
             checkinVO.setNextPlaceVO(dto);
 

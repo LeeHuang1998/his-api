@@ -5,7 +5,6 @@ import com.alibaba.fastjson.JSON;
 import com.leehuang.his.api.config.sa_token.StpCustomerUtil;
 import com.leehuang.his.api.db.dao.AddressDao;
 import com.leehuang.his.api.db.entity.AddressEntity;
-import com.leehuang.his.api.exception.BizCodeEnum;
 import com.leehuang.his.api.exception.HisException;
 import com.leehuang.his.api.front.dto.address.request.AddressRequest;
 import com.leehuang.his.api.front.dto.address.request.AddressStatusRequest;
@@ -17,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@Service("AddressService")
+@Service
 @RequiredArgsConstructor
 public class AddressServiceImpl implements AddressService {
 
@@ -48,7 +47,6 @@ public class AddressServiceImpl implements AddressService {
             addressDao.insertAddress(addressEntity);
         } else {
             // 修改地址
-
             addressDao.updateAddress(addressEntity);
         }
     }

@@ -47,6 +47,15 @@ public class CheckupResultDao {
     }
 
     /**
+     * 根据 _id 查询体检结果数据
+     * @param id
+     * @return
+     */
+    public CheckupResultEntity searchById(String id) {
+        return mongoTemplate.findById(id, CheckupResultEntity.class);
+    }
+
+    /**
      * 根据预约的 uuid 查询体检结果
      * @param uuid
      * @return
@@ -135,14 +144,14 @@ public class CheckupResultDao {
 
         // 3. 从 checkup 中提取所有应完成的科室
         Set<String> allPlaces = entity.getCheckup().stream()
-                .map(CheckupVO::getPlace).filter(Objects::nonNull)
+                .map(CheckupVO::getPlace).filter(Objects::nonNull).map(String::trim)
                 .collect(Collectors.toSet());
 
         // 4. 从 result 获取中已完成的科室，若 entity.getResult() 为空则直接返回 null
         Map<String, String> finishedPlaceMap = Optional.ofNullable(entity.getResult())
                 .orElse(Collections.emptyList())                    // 如果为null，返回空列表.stream()
                 .stream()
-                .collect(Collectors.toMap(e -> e.getPlaceId().toString(), PlaceCheckupResultVO::getPlace));
+                .collect(Collectors.toMap(e -> e.getPlaceId().toString(), e -> e.getPlace().trim()));
 
         // 5. 构造返回对象
         CheckupProgressDTO dto = new CheckupProgressDTO();

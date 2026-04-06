@@ -8,6 +8,7 @@ import org.springframework.validation.annotation.Validated;
 
 import javax.validation.constraints.NotBlank;
 
+@Component
 @ConfigurationProperties(prefix = "minio")
 @Getter
 @Setter
@@ -19,4 +20,10 @@ public class MinioProperties {
 
     @NotBlank
     private String bucket;
+
+    @NotBlank
+    private String accessKey;
+
+    @NotBlank
+    private String secretKey;
 }

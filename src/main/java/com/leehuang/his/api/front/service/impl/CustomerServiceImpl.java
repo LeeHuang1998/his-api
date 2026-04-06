@@ -23,7 +23,6 @@ import com.leehuang.his.api.front.dto.customer.vo.LoginVO;
 import com.leehuang.his.api.front.dto.customer.vo.SmsCodeVO;
 import com.leehuang.his.api.front.service.CustomerService;
 import com.leehuang.his.api.front.service.CustomerThirdPartyService;
-import io.minio.messages.DeleteObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -33,9 +32,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
-@Service("customerService")
+@Service
 @RequiredArgsConstructor
 @Slf4j
 public class CustomerServiceImpl implements CustomerService {
@@ -291,30 +289,40 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional
     public void updateAvatar(MultipartFile file, String oldPath) {
-        // 获取当前登录用户
-        int customerId = StpCustomerUtil.getLoginIdAsInt();
-
-        // 若 oldPath 不为空字符串，则需要删除原图片
-        if (oldPath.startsWith(minioProperties.getEndpoint() + "/" + minioProperties.getBucket() + "/")) {
-            List<String> newList = new ArrayList<>(List.of(oldPath));
-
-            List<DeleteObject> deleteObjList
-                    = newList.stream().map(DeleteObject::new).collect(Collectors.toList());
-            minioUtil.removeImages(deleteObjList);
+        // 1. 校验上传文件
+        if (file == null || file.isEmpty()) {
+            throw new HisException("上传文件不能为空");
         }
 
-        // 获取原文件名
-        String fileName = file.getOriginalFilename();
+        // 2. 获取当前登录用户
+        int customerId = StpCustomerUtil.getLoginIdAsInt();
 
-        assert fileName != null;
-        // 获取扩展名（含点）
-        String extension  = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
-        // 设置上传路径和文件名
-        String path = "front/customer/photo/customer_" + customerId + "_" + UUID.randomUUID().toString().replace("-", "") + extension;
-        // 上传文件
+        // 3. 删除旧头像
+        if (oldPath != null && !oldPath.trim().isEmpty()) {
+            if (oldPath.startsWith("front/customer/photo/")) {
+                try {
+                    minioUtil.removeFile(oldPath);
+                    log.debug("删除旧头像成功：{}", oldPath);
+                } catch (Exception e) {
+                    // 删除失败仅记录日志，不影响新头像上传和数据库更新
+                    log.error("删除旧头像失败（将保留旧文件）：{}", oldPath, e);
+                }
+            } else {
+                log.warn("旧头像路径格式不合法，跳过删除：{}", oldPath);
+            }
+        }
+
+        // 4. 生成新头像文件名并上传
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || fileName.isEmpty()) {
+            throw new HisException("文件名无效");
+        }
+        String extension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+        String path = "front/customer/photo/customer_" + customerId + "_"
+                + UUID.randomUUID().toString().replace("-", "") + extension;
         minioUtil.uploadImage(path, file);
 
-        // 更新数据库数据
+        // 5. 更新数据库
         customerDao.updatePhoto(customerId, path);
     }
 

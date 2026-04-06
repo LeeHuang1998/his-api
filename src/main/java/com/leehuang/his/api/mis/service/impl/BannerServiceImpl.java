@@ -14,18 +14,19 @@ import com.leehuang.his.api.common.request.UpdateStatusRequest;
 import com.leehuang.his.api.mis.service.BannerService;
 import io.minio.messages.DeleteObject;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service("BannerService")
+@Service
 @RequiredArgsConstructor
+@Slf4j
 public class BannerServiceImpl implements BannerService {
 
     private final BannerDao bannerDao;
@@ -72,31 +73,46 @@ public class BannerServiceImpl implements BannerService {
 
     /**
      * 上传轮播图
-     * @param file  上传文件
-     * @return      上传路径
+     * @param file          上传文件
+     * @param oldPath       原来的 banner 路径（update banner 时）
+     * @return              上传路径
      */
     @Override
     @Transactional
     public String uploadBanner(MultipartFile file, String oldPath) {
-        // 若 oldPath 不为空字符串，则需要删除原图片，oldPath 格式：front/banner/0be24e7db7924f46ba20ff51bdc05a6a.png
-        if (!oldPath.isEmpty()) {
-            List<String> newList = new ArrayList<>(List.of(oldPath));
-
-            List<DeleteObject> deleteObjList
-                    = newList.stream().map(DeleteObject::new).collect(Collectors.toList());
-            minioUtil.removeImages(deleteObjList);
+        // 1. 校验上传文件
+        if (file == null || file.isEmpty()) {
+            throw new HisException("上传文件不能为空");
         }
 
+        // 2. 校验文件名
         String fileName = file.getOriginalFilename();
+        // 增加文件名非空校验
+        if (fileName == null || fileName.isEmpty()) {
+            throw new HisException("文件名无效");
+        }
 
-        assert fileName != null;
-        // 结果为：.jpg（包含点）
-        String extension  = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
+        // 3. 删除旧图片
+        if (oldPath != null && !oldPath.isEmpty()) {
+            if (oldPath.startsWith("front/banner/")) {
+                try {
+                    minioUtil.removeFile(oldPath);
+                    log.debug("删除旧 banner 成功：{}", oldPath);
+                } catch (Exception e) {
+                    // 删除失败不影响新图片上传，仅记录日志
+                    log.error("删除旧 banner 失败（将保留旧文件）：{}", oldPath, e);
+                }
+            } else {
+                log.warn("旧 banner 路径格式不合法，跳过删除：{}", oldPath);
+            }
+        }
 
+        // 4. 生成新图片路径并上传
+        String extension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
         String path = "front/banner/" + UUID.randomUUID().toString().replace("-", "") + extension;
-
         minioUtil.uploadImage(path, file);
 
+        // 5. 返回新图片路径
         return path;
     }
 
@@ -152,26 +168,22 @@ public class BannerServiceImpl implements BannerService {
 
         if (canDel) {
             // 1. 查询对应的图片
-            List<String> imageList = bannerDao.selectImage(ids);
+            List<String> imagePathList = bannerDao.selectImage(ids);
 
-            // 2. 将图片路径存入到 pathList 中
-            List<String> pathList = new ArrayList<>(imageList);
-
-            // 3. 从 minio 中批量删除图片
+            // 2. 从 minio 中批量删除图片
             List<DeleteObject> deleteObjList
-                    = pathList.stream().map(DeleteObject::new).collect(Collectors.toList());
-            minioUtil.removeImages(deleteObjList);
+                    = imagePathList.stream().map(DeleteObject::new).collect(Collectors.toList());
+            minioUtil.removeFiles(deleteObjList);
 
-            // 删除所有的商品
+            // 3. 更新数据库数据，删除所有的商品
             return bannerDao.deleteBanner(ids);
         } else {
             throw new HisException(BizCodeEnum.HIS_EXCEPTION.getCode(), "存在不满足被删除条件的 banner，无法删除");
         }
-
     }
 
     /**
-     *
+     * 获取所有的已发布的 banner
      * @return
      */
     @Override

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.Map;
 
-@Service("AlipayService")
+@Service
 @RequiredArgsConstructor
 @Slf4j
 public class AlipayServiceImpl implements AlipayService {

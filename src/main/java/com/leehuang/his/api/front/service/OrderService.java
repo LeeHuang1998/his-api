@@ -5,10 +5,12 @@ import com.leehuang.his.api.db.entity.OrderEntity;
 import com.leehuang.his.api.front.dto.order.request.OutTradeNoRequest;
 import com.leehuang.his.api.front.dto.order.request.OrderRequest;
 import com.leehuang.his.api.front.dto.order.request.RefundOrderRequest;
+import com.leehuang.his.api.front.dto.order.vo.OrderAppointmentInfoVO;
 import com.leehuang.his.api.front.dto.order.vo.OrderDetailVO;
 import com.leehuang.his.api.front.dto.order.vo.OrderListVO;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface OrderService {
 
@@ -56,4 +58,7 @@ public interface OrderService {
 
     // 查询退款
     String checkRefund(OutTradeNoRequest request);
+
+    // 根据订单查看预约信息
+    List<OrderAppointmentInfoVO> searchAppointmentInfoByOrderId(Integer orderId, int customerId);
 }

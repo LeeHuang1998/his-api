@@ -10,7 +10,7 @@ import com.leehuang.his.api.db.dao.AppointmentRestrictionDao;
 import com.leehuang.his.api.db.dao.SystemDao;
 import com.leehuang.his.api.db.entity.AppointmentRestrictionEntity;
 import com.leehuang.his.api.db.entity.SystemEntity;
-import com.leehuang.his.api.handler.FlowRegulationJobHandler;
+import com.leehuang.his.api.job.FlowRegulationJobHandler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +37,7 @@ public class InitializeWorkAsync {
 
     private final FlowRegulationJobHandler flowRegulationJobHandler;
 
+    // 指定 AsyncTaskExecutor 这个线程池执行这个方法
     @Async("AsyncTaskExecutor")
     @Transactional
     public void initCacheAppointmentData() {

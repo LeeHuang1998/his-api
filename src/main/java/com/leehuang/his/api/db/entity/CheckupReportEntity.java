@@ -29,7 +29,13 @@ public class CheckupReportEntity implements Serializable {
 
     private LocalDate date;
 
-    private LocalDateTime createTime;
+    private LocalDateTime generatedTime;
+
+    private Integer generateType;
+
+    private String errorMessage;
+
+    private LocalDateTime errorTime;
 
     private static final long serialVersionUID = 1L;
 }

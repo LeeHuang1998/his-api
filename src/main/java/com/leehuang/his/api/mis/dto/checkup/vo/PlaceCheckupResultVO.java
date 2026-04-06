@@ -26,6 +26,9 @@ public class PlaceCheckupResultVO {
     // 文档模板
     private String template;
 
+    // 模板2 的图片
+    private String image;
+
     // 在该科室进行的所有的体检结果
     private List<PlaceCheckupResultItemVO> checkupItems;
 }

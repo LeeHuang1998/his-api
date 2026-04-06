@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
-@Service("paymentNotificationService")
+@Service
 @RequiredArgsConstructor
 public class PaymentNotificationServiceImpl implements PaymentNotificationService {
 

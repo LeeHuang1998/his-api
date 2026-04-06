@@ -29,6 +29,8 @@ public class OrderEntity implements Serializable {
 
     private Integer number;
 
+    private Integer appointedNum;
+
     private BigDecimal payableAmount;
 
     private BigDecimal discountAmount;

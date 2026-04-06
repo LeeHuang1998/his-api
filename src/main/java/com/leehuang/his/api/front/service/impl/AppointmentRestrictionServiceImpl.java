@@ -7,7 +7,7 @@ import com.leehuang.his.api.front.service.AppointmentRestrictionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-@Service("appointmentRestrictionServiceImpl")
+@Service
 @RequiredArgsConstructor
 public class AppointmentRestrictionServiceImpl extends ServiceImpl<AppointmentRestrictionDao,AppointmentRestrictionEntity> implements AppointmentRestrictionService {
 

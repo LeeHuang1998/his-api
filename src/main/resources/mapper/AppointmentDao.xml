@@ -191,4 +191,20 @@
         WHERE a.uuid = #{uuid}
     </select>
 
+    <!--  查询生成体检报告所需的数据  -->
+    <select id="searchDataForReport" resultType="com.leehuang.his.api.mis.dto.report.CheckupReportDTO">
+        SELECT a.uuid,
+               a.`name`,
+               a.sex,
+               a.tel,
+               a.birthday,
+               CONCAT(ad.province, IFNULL(ad.city,''),ad.district, ad.detail) AS address,
+               a.appointment_date,
+               o.goods_title AS goods
+        FROM tb_appointment a
+                 INNER JOIN tb_order o ON a.order_id = o.id
+                 INNER JOIN tb_address ad on o.address_id = ad.id
+        WHERE a.id = #{appointmentId};
+    </select>
+
 </mapper>

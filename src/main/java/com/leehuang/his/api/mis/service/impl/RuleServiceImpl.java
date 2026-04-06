@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@Service("ruleService")
+@Service
 @RequiredArgsConstructor
 public class RuleServiceImpl implements RuleService {
 

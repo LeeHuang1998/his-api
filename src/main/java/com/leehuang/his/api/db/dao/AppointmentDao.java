@@ -10,6 +10,7 @@ import com.leehuang.his.api.mis.dto.appointment.vo.AppointmentVO;
 import com.leehuang.his.api.mis.dto.appointment.dto.GuidanceSummaryInfoVO;
 import com.leehuang.his.api.mis.dto.appointment.vo.CustomerSummaryInfoVO;
 import com.leehuang.his.api.mis.dto.appointment.vo.OrderPageAppointmentVO;
+import com.leehuang.his.api.mis.dto.report.CheckupReportDTO;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDate;
@@ -56,6 +57,9 @@ public interface AppointmentDao extends BaseMapper<AppointmentEntity> {
 
     // 医生检查页面客户摘要信息
     CustomerSummaryInfoVO searchCustomerSummaryInfoByUuid(@Param("uuid") String uuid);
+
+    // 查询生成体检报告所需的数据
+    CheckupReportDTO searchDataForReport(@Param("appointmentId") Integer appointmentId);
 }
 
 

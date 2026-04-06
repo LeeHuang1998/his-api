@@ -2,23 +2,19 @@ package com.leehuang.his.api.front.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.lang.Snowflake;
-import com.alibaba.fastjson.JSON;
 import com.alipay.api.response.AlipayTradeFastpayRefundQueryResponse;
 import com.alipay.api.response.AlipayTradeQueryResponse;
 import com.alipay.api.response.AlipayTradeRefundResponse;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leehuang.his.api.common.utils.PageUtils;
 import com.leehuang.his.api.common.enums.OrderStatusEnum;
 import com.leehuang.his.api.config.properties.MinioProperties;
 import com.leehuang.his.api.config.sa_token.StpCustomerUtil;
-import com.leehuang.his.api.db.dao.AddressDao;
-import com.leehuang.his.api.db.dao.GoodsDao;
-import com.leehuang.his.api.db.dao.GoodsSnapshotDao;
-import com.leehuang.his.api.db.dao.OrderDao;
+import com.leehuang.his.api.db.dao.*;
+import com.leehuang.his.api.db.entity.AppointmentEntity;
 import com.leehuang.his.api.db.entity.OrderEntity;
 import com.leehuang.his.api.db.pojo.GoodsSnapShotDTO;
 import com.leehuang.his.api.db.pojo.GoodsSnapshotEntity;
@@ -27,14 +23,13 @@ import com.leehuang.his.api.front.dto.address.vo.AddressVO;
 import com.leehuang.his.api.front.dto.order.request.OutTradeNoRequest;
 import com.leehuang.his.api.front.dto.order.request.OrderRequest;
 import com.leehuang.his.api.front.dto.order.request.RefundOrderRequest;
+import com.leehuang.his.api.front.dto.order.vo.OrderAppointmentInfoVO;
 import com.leehuang.his.api.front.dto.order.vo.OrderGoodsVO;
 import com.leehuang.his.api.front.dto.order.vo.OrderDetailVO;
 import com.leehuang.his.api.front.dto.order.vo.OrderListVO;
 import com.leehuang.his.api.front.service.AlipayService;
 import com.leehuang.his.api.front.service.OrderService;
 
-import com.leehuang.his.api.mis.dto.goods.vo.CheckupItemVo;
-import com.leehuang.his.api.mis.dto.goods.vo.CheckupVO;
 import com.ql.util.express.DefaultContext;
 import com.ql.util.express.ExpressRunner;
 
@@ -56,8 +51,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-@Service("orderService")
+@Service
 @Slf4j
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
@@ -81,6 +77,7 @@ public class OrderServiceImpl implements OrderService {
     private final TransactionTemplate transactionTemplate;
 
     private final ObjectMapper objectMapper;
+    private final AppointmentDao appointmentDao;
 
     /**
      * 创建订单
@@ -132,19 +129,19 @@ public class OrderServiceImpl implements OrderService {
                     snapshotEntity.setTag(objectMapper.readValue(snapShotDTO.getTag(), String[].class));
                 }
                 if (snapShotDTO.getCheckup1() != null && !snapShotDTO.getCheckup1().isBlank()) {
-                    snapshotEntity.setCheckup1(objectMapper.readValue(snapShotDTO.getCheckup1(), new TypeReference<List<CheckupItemVo>>() {}));
+                    snapshotEntity.setCheckup1(objectMapper.readValue(snapShotDTO.getCheckup1(), new TypeReference<>() {}));
                 }
                 if (snapShotDTO.getCheckup2() != null && !snapShotDTO.getCheckup2().isBlank()) {
-                    snapshotEntity.setCheckup2(objectMapper.readValue(snapShotDTO.getCheckup2(), new TypeReference<List<CheckupItemVo>>() {}));
+                    snapshotEntity.setCheckup2(objectMapper.readValue(snapShotDTO.getCheckup2(), new TypeReference<>() {}));
                 }
                 if (snapShotDTO.getCheckup3() != null && !snapShotDTO.getCheckup3().isBlank()) {
-                    snapshotEntity.setCheckup3(objectMapper.readValue(snapShotDTO.getCheckup3(), new TypeReference<List<CheckupItemVo>>() {}));
+                    snapshotEntity.setCheckup3(objectMapper.readValue(snapShotDTO.getCheckup3(), new TypeReference<>() {}));
                 }
                 if (snapShotDTO.getCheckup4() != null && !snapShotDTO.getCheckup4().isBlank()) {
-                    snapshotEntity.setCheckup4(objectMapper.readValue(snapShotDTO.getCheckup4(), new TypeReference<List<CheckupItemVo>>() {}));
+                    snapshotEntity.setCheckup4(objectMapper.readValue(snapShotDTO.getCheckup4(), new TypeReference<>() {}));
                 }
                 if (snapShotDTO.getCheckup() != null && !snapShotDTO.getCheckup().isBlank()) {
-                    snapshotEntity.setCheckup(objectMapper.readValue(snapShotDTO.getCheckup(), new TypeReference<List<CheckupVO>>() {}));
+                    snapshotEntity.setCheckup(objectMapper.readValue(snapShotDTO.getCheckup(), new TypeReference<>() {}));
                 }
 
                 // 类型转换完成后，插入到 MongoDB 中
@@ -445,7 +442,7 @@ public class OrderServiceImpl implements OrderService {
         // 数据不为空，则条件分页查询数据
         List<OrderListVO> orderListVO = orderDao.searchOrderListByPage(start, length, keyword, status, customerId);
 
-        // 设置商品图片
+        // 设置商品图片和 disabled
         orderListVO.forEach(order -> {
             order.setGoodsImage(minioProperties.getEndpoint() + "/" + minioProperties.getBucket() + "/" + order.getGoodsImage());
             order.setDisabled(order.getStatus() == 1 &&
@@ -663,6 +660,35 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
+     * 根据订单号查看订单的预约信息
+     * @param orderId
+     * @param customerId
+     * @return
+     */
+    @Override
+    public List<OrderAppointmentInfoVO> searchAppointmentInfoByOrderId(Integer orderId, int customerId) {
+        Long count = orderDao.selectCount(
+                new LambdaQueryWrapper<OrderEntity>().eq(OrderEntity::getId, orderId).eq(OrderEntity::getCustomerId, customerId));
+        if (count != 1) {
+            throw new HisException("查询的订单不存在");
+        }
+
+        List<AppointmentEntity> appointmentEntities = appointmentDao.selectList(new LambdaQueryWrapper<AppointmentEntity>()
+                .eq(AppointmentEntity::getOrderId, orderId)
+                .eq(AppointmentEntity::getIsDeleted, 0  )
+        );
+
+        return appointmentEntities.stream().map(entity -> {
+            OrderAppointmentInfoVO appointmentInfoVO = new OrderAppointmentInfoVO();
+            appointmentInfoVO.setAppointmentId(entity.getId());
+            appointmentInfoVO.setDesc(entity.getAppointmentDesc() == null ? "无" : entity.getAppointmentDesc());
+
+            BeanUtil.copyProperties(entity, appointmentInfoVO);
+            return appointmentInfoVO;
+        }).collect(Collectors.toList());
+    }
+
+    /**
      * 根据支付方式关闭订单
      * @param outTradeNo    订单流水号
      * @param paymentType   支付方式
@@ -722,7 +748,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * TODO 微信支付的订单关单（未完成）
+     * 微信支付的订单关单
      * @param outTradeNo
      * @return
      */

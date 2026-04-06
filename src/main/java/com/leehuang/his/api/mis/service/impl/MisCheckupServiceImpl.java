@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-@Service("MisCheckupService")
+@Service
 @RequiredArgsConstructor
 @Slf4j
 public class MisCheckupServiceImpl implements MisCheckupService {

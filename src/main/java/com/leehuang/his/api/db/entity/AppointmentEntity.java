@@ -19,7 +19,7 @@ public class AppointmentEntity implements Serializable {
 
     private Integer orderId;
 
-    private LocalDate appointmentDate;
+    private LocalDate appointmentDate;     // 预约的体检日期
 
     private String name;
 
@@ -31,13 +31,15 @@ public class AppointmentEntity implements Serializable {
 
     private String tel;
 
-    private String appointmentDesc;
+    private String appointmentDesc;         // 备注信息
 
-    private Integer status;
+    private Integer status;                 // 体检预约状态
 
-    private LocalDateTime checkinTime;
+    private LocalDateTime createTime;       // 体检预约创建时间
 
-    private LocalDateTime createTime;
+    private LocalDateTime checkinTime;      // 体检预约签到时间
+
+    private LocalDateTime completedTime;    // 体检预约完成时间
 
     private Integer isDeleted;          // 是否删除：0-未删除，1-已删除
 

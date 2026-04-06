@@ -19,7 +19,7 @@ import org.springframework.util.StringUtils;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-@Service("SystemService")
+@Service
 @RequiredArgsConstructor
 public class SystemServiceImpl extends ServiceImpl<SystemDao, SystemEntity> implements SystemService {
 

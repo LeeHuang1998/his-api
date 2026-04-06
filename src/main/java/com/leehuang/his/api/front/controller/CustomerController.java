@@ -1,8 +1,6 @@
 package com.leehuang.his.api.front.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
-import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.annotation.SaMode;
 import com.leehuang.his.api.common.R;
 import com.leehuang.his.api.config.sa_token.StpCustomerUtil;
 import com.leehuang.his.api.front.dto.customer.request.*;
@@ -139,6 +137,12 @@ public class CustomerController {
         return R.OK("修改成功");
     }
 
+    /**
+     * 更新头像
+     * @param file          新头像文件
+     * @param oldPath       原头想地址
+     * @return
+     */
     @PostMapping("/updateAvatar")
     @SaCheckLogin(type = StpCustomerUtil.TYPE)
     public R updateAvatar(@RequestParam("file") MultipartFile file, @RequestParam("oldPath") String oldPath) {

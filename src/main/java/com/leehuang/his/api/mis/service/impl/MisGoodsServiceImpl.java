@@ -29,6 +29,7 @@ import com.leehuang.his.api.mis.dto.goods.vo.GoodsDetailVO;
 import com.leehuang.his.api.mis.service.MisGoodsService;
 import io.minio.messages.DeleteObject;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -47,8 +48,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Service("MisGoodsService")
+@Service
 @RequiredArgsConstructor
+@Slf4j
 public class MisGoodsServiceImpl implements MisGoodsService {
 
     private final GoodsDao goodsDao;
@@ -82,11 +84,37 @@ public class MisGoodsServiceImpl implements MisGoodsService {
      */
     @Override
     public String uploadImage(MultipartFile file) {
-        // 生成新的文件名
-        String fileName = IdUtil.simpleUUID() + ".jpg";
+        if (file == null || file.isEmpty()) {
+            log.debug("上传的图片为空");
+            throw new HisException("上传的图片不能为空");
+        }
+
+        // 2. 校验文件名
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isEmpty()) {
+            log.debug("上传的图片文件名无效");
+            throw new HisException("文件名无效");
+        }
+
+        // 3. 获取文件扩展名（含点）
+        String extension = "";
+        int lastDotIndex = originalFilename.lastIndexOf(".");
+        if (lastDotIndex != -1) {
+            extension = originalFilename.substring(lastDotIndex).toLowerCase();
+        }
+
+        // 4. 校验扩展名
+        if (!extension.matches("\\.(jpg|jpeg|png|webp)$")) {
+            throw new HisException("仅支持 jpg、jpeg、png、webp 格式的图片");
+        }
+
+        // 5. 生成新文件名（使用扩展名，保持原格式）
+        String fileName = IdUtil.simpleUUID() + extension;
         String path = "front/goods/goods_" + fileName;
 
+        // 6. 上传到 MinIO
         minioUtil.uploadImage(path, file);
+
         return path;
     }
 
@@ -256,7 +284,7 @@ public class MisGoodsServiceImpl implements MisGoodsService {
             BufferedInputStream bin = new BufferedInputStream(in);
 
             // 从 io 流中获取 excel 文件对象，XSSFWorkbook 若没有放到 try-with-resources 里，异常时可能泄漏文件句柄
-            XSSFWorkbook xssfWorkbook = new XSSFWorkbook(bin);
+            XSSFWorkbook xssfWorkbook = new XSSFWorkbook(bin)
         ) {
 
             // 由于该 excel 文件中只有一个 Sheet 页，取出该页
@@ -358,7 +386,7 @@ public class MisGoodsServiceImpl implements MisGoodsService {
     @Override
     public InputStream downloadCheckupExcel(IdRequest request) {
         String path = "/mis/goods/checkup/excel_" + request.getId() + ".xlsx";
-        return minioUtil.downloadExcel(path);
+        return minioUtil.downloadFile(path);
     }
 
     /**
@@ -385,21 +413,20 @@ public class MisGoodsServiceImpl implements MisGoodsService {
         // 查询商品是否可以被删除
         Boolean canDel = goodsDao.selectCanDelGoods(ids);
         if (canDel) {
-            // 批量删除商品图片
-            List<String> pathList = new ArrayList<>();
-            // 1. 查询对应的图片
-            List<String> imageList = goodsDao.selectImage(ids);
-            // 2. 将图片路径存入到 pathList 中
-            for (String s : imageList) {
-                List<String> strings = JSON.parseArray(s, String.class);
-                pathList.addAll(strings);
-            }
-            // 3. 从 minio 中批量删除图片
-            List<DeleteObject> deleteObjList
-                    = pathList.stream().map(DeleteObject::new).collect(Collectors.toList());
-            minioUtil.removeImages(deleteObjList);
+            // 1. 查询商品图片 JSON 字符串，解析并合并为路径列表
+            // 通过 parseArray 将每条记录的 image 字段解析为 List<String>，flatMap 会将每个对象的 List<String> 展平（将所有的元素都取出来），最后通过 .collect 收集为一个 List<String>
+            List<String> imagePathList = goodsDao.selectImage(ids).stream()
+                    .flatMap(s -> JSON.parseArray(s, String.class).stream())
+                    .collect(Collectors.toList());
 
-            // 删除所有的商品
+            // 2. 从 minio 中批量删除图片
+            List<DeleteObject> deleteObjList = imagePathList.stream()
+                    .map(DeleteObject::new)
+                    .collect(Collectors.toList());
+
+            minioUtil.removeFiles(deleteObjList);
+
+            // 3. 数据库中删除所有的商品
             return goodsDao.deleteGoods(ids);
         } else {
             throw new HisException(BizCodeEnum.HIS_EXCEPTION.getCode(), "存在不满足被删除条件的商品，无法删除");
@@ -417,7 +444,7 @@ public class MisGoodsServiceImpl implements MisGoodsService {
         // 批量删除图片
         List<DeleteObject> objectList
                 = imagesList.stream().map(DeleteObject::new).collect(Collectors.toList());
-        this.minioUtil.removeImages(objectList);
+        this.minioUtil.removeFiles(objectList);
     }
 
     /**

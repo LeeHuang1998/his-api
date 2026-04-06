@@ -672,6 +672,14 @@ public class MisFlowRegulationServiceImpl extends ServiceImpl<FlowRegulationDao,
             redisTemplate.expire(FlowRegulationConstants.FLOW_REGULATION, 25, TimeUnit.HOURS);
         }
 
+        // 2.3 判断该科室是否能挂号
+        CheckupProgressDTO progressDTO = checkupResultDao.getCheckupProgress(uuid);
+        // 判断该科室是否在订单的体检项目内
+        boolean contains = progressDTO.getAllPlaces().contains(flowRegulationEntity.getPlace());
+        if (!contains) {
+            throw new HisException("该科室不在体检项目内，无法挂号");
+        }
+
         // 3. 将当前体检单添加到排队队伍中，并给排队人数 +1，排队状态设置为 PENDING
         // 3.1 原子执行 redis 操作，往科室排队人员队列中添加姓名，添加成功时返回 1，
         String lua = "local added = redis.call('ZADD', KEYS[1], 'NX', ARGV[1], ARGV[2]) " +

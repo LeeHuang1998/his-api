@@ -17,7 +17,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 
-@Service("deptService")
+@Service
 public class DeptServiceImpl implements DeptService {
 
     @Resource

@@ -7,9 +7,9 @@ public class PlaceCheckupResultItemVO {
 
     private String checkupName;
 
+    private String value;
+
     private String unit;
 
     private String standard;
-
-    private String value;
 }

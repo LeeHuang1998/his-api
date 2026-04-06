@@ -1,4 +1,4 @@
-package com.leehuang.his.api.handler;
+package com.leehuang.his.api.job;
 
 import com.xxl.job.core.handler.annotation.XxlJob;
 import lombok.RequiredArgsConstructor;

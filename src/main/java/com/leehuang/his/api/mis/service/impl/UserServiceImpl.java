@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-@Service("userService")
+@Service
 public class UserServiceImpl implements UserService {
 
     @Resource

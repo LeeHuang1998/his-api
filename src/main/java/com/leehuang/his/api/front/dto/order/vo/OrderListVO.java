@@ -24,15 +24,16 @@ public class OrderListVO {
 
     private Integer number;
 
+    private Integer appointedNum;
+
     private BigDecimal goodsPrice;
 
     private BigDecimal payableAmount;
 
     private Integer status;
 
+    /* disabled 字段用于判断该订单是否可以取消 */
     private Boolean disabled;
 
     private LocalDateTime createTime;
-
-    private Integer appointCount;
 }

@@ -5,6 +5,9 @@ import lombok.Getter;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 订单状态枚举
+ */
 @Getter
 public enum OrderStatusEnum {
 
@@ -12,13 +15,14 @@ public enum OrderStatusEnum {
      * 订单状态码
      */
     UNPAID(1, "未付款"),
-    CLOSED(2, "已关闭"),
+    APPOINTED(2, "已预约"),
     PAID(3, "已付款"),
     REFUNDED(4, "已退款"),
-    APPOINTED(5, "已预约"),
-    FINISHED(6, "已结束"),
+    ALLAPPOINTED(5, "已全部预约"),
+    COMPLETED(6, "已结束"),
     REFUNDING(7, "退款中"),
-    REFUND_FAILED(8,"退款失败");
+    REFUND_FAILED(8,"退款失败"),
+    CLOSED(9,"已关闭");
 
     private final Integer code;
     private final String msg;

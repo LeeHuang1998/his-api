@@ -18,7 +18,7 @@ import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 
-@Service("roleService")
+@Service
 public class RoleServiceImpl implements RoleService {
 
     @Resource

@@ -8,6 +8,7 @@ import com.leehuang.his.api.exception.HisException;
 import com.leehuang.his.api.front.dto.order.request.OutTradeNoRequest;
 import com.leehuang.his.api.front.dto.order.request.OrderRequest;
 import com.leehuang.his.api.front.dto.order.request.RefundOrderRequest;
+import com.leehuang.his.api.front.dto.order.vo.OrderAppointmentInfoVO;
 import com.leehuang.his.api.front.dto.order.vo.OrderDetailVO;
 import com.leehuang.his.api.front.dto.order.vo.OrderListVO;
 import com.leehuang.his.api.front.service.OrderService;
@@ -17,6 +18,7 @@ import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 
@@ -148,6 +150,17 @@ public class OrderController {
         return R.OK().put("refundResult", refundResult);
     }
 
-
+    /**
+     * 前台商城订单页面查看订单预约信息
+     * @param orderId
+     * @return
+     */
+    @GetMapping("/searchAppointmentInfoByOrderId/{orderId}")
+    @SaCheckLogin(type = StpCustomerUtil.TYPE)
+    public R searchAppointmentInfoByOrderId(@PathVariable Integer orderId) {
+        int customerId = StpCustomerUtil.getLoginIdAsInt();
+        List<OrderAppointmentInfoVO> appointmentInfoVOList = orderService.searchAppointmentInfoByOrderId(orderId, customerId);
+        return R.OK().put("appointmentInfoVOList", appointmentInfoVOList);
+    }
 
 }

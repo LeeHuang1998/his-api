@@ -112,38 +112,31 @@
      -->
     <select id="searchOrderListByPage" resultType="com.leehuang.his.api.front.dto.order.vo.OrderListVO">
         SELECT
-            o.id,
-            o.goods_id,
-            o.snapshot_id,
-            o.goods_title,
-            o.goods_description,
-            o.goods_image,
-            o.out_trade_no,
-            o.number,
-            o.goods_price,
-            o.payable_amount,
-            o.status,
-            o.create_time,
-            COALESCE(a.appoint_count, 0) AS appoint_count
-        FROM tb_order o
-            LEFT JOIN (
-                SELECT a.order_id, COUNT(*) AS appoint_count
-                    FROM tb_appointment a
-                INNER JOIN tb_order o2 ON a.order_id = o2.id
-                WHERE o2.customer_id = #{customerId}
-                GROUP BY a.order_id
-            ) a ON a.order_id = o.id
-        WHERE o.customer_id = #{customerId}
+            id,
+            goods_id,
+            snapshot_id,
+            goods_title,
+            goods_description,
+            goods_image,
+            out_trade_no,
+            number,
+            appointed_num,
+            goods_price,
+            payable_amount,
+            status,
+            create_time
+        FROM tb_order
+        WHERE customer_id = #{customerId}
         <if test="status != null">
-            AND o.status = #{status}
+            AND status = #{status}
         </if>
         <if test="keyword != null and keyword != ''">
             AND (
-            o.goods_title LIKE CONCAT('%', #{keyword}, '%') OR
-            o.out_trade_no LIKE CONCAT('%', #{keyword}, '%')
+            goods_title LIKE CONCAT('%', #{keyword}, '%') OR
+            out_trade_no LIKE CONCAT('%', #{keyword}, '%')
             )
         </if>
-        ORDER BY o.create_time DESC
+        ORDER BY create_time DESC
         LIMIT #{start}, #{length}
     </select>
 
@@ -296,22 +289,19 @@
     </select>
 
     <!--  查询订单的商品数和订单中已完成的预约数  -->
-    <!--  case 当 status = 3 时返回 1，否则返回 0，用 sum 相加就是订单中完成的预约数  -->
-    <!--  第一个 join：通过 uuid 筛选出数据，此时获取到 uuid 数据对应的 order_id  -->
-    <!--  第二个 join：统计 status = 3 的记录数，第一个 join 只有一条记录，就是 uuid 为传入的参数的记录，
-            此时再与 tb_appointment 表连接，条件为 order_id，那就会出现所有 order_Id 与 uuid 对应的记录
-    -->
     <select id="searchOrderFinished"
             resultType="com.leehuang.his.api.mis.dto.order.dto.OrderAppointmentFinishedDTO">
-        SELECT
-            o.id,
-            o.number AS goodsCount,
-            SUM(CASE WHEN a2.status = 3 THEN 1 ELSE 0 END) AS appointmentFinishedCount
-        FROM tb_appointment a1
-                INNER JOIN tb_order o ON o.id = a1.order_id
-                INNER JOIN tb_appointment a2 ON a2.order_id = o.id AND a2.is_deleted = 0
-        WHERE a1.uuid = #{uuid}
-        GROUP BY o.id, o.number;
+        SELECT o.id,
+               o.number AS goodsCount,
+               # 查询订单中已完成的预约数，使用子查询避免笛卡尔积产生的中间结果集
+               (SELECT COUNT(*) FROM tb_appointment a2
+                    WHERE a2.order_id = o.id AND a2.is_deleted = 0 AND a2.status = 3
+               ) AS appointmentFinishedCount
+        FROM tb_order o
+        WHERE o.id = (
+        SELECT a1.order_id FROM tb_appointment a1
+            WHERE a1.uuid = #{uuid}
+        LIMIT 1);
     </select>
 
 </mapper>

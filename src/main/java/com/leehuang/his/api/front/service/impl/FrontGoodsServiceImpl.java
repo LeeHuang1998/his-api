@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 
-@Service("FrontGoodsServiceImpl")
+@Service
 @RequiredArgsConstructor
 public class FrontGoodsServiceImpl implements FrontGoodsService {
 

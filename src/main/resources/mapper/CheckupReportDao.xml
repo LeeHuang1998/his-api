@@ -10,16 +10,97 @@
             appointment_id,
             result_id,
             status,
-            date,
-            create_time
+            date
         )
         SELECT
             a.id,
             #{resultId},
             1,
-            CURRENT_DATE(),
-            NOW()
+            CURRENT_DATE()
         FROM tb_appointment a
         WHERE a.uuid = #{uuid};
     </insert>
+
+    <!-- 分页查询体检报告数据 -->
+    <select id="selectByPage" resultType="com.leehuang.his.api.mis.dto.checkupReport.vo.CheckupReportPageVO">
+        SELECT
+        ta.id as appointment_id,
+        ta.name,
+        ta.sex,
+        ta.tel,
+        ta.birthday,
+        ta.status as appointment_status,
+        ta.appointment_date,
+        cr.id as report_id,
+        cr.result_id,
+        cr.status,
+        cr.file_path,
+        cr.generated_time,
+        cr.waybill_code,
+        cr.waybill_date
+        FROM tb_checkup_report cr
+        LEFT JOIN tb_appointment ta on cr.appointment_id = ta.id
+        <where>
+            <if test="request.name != null and request.name != ''">
+                AND ta.name LIKE CONCAT('%', #{request.name}, '%')
+            </if>
+            <if test="request.tel != null and request.tel != ''">
+                AND ta.tel = #{request.tel}
+            </if>
+            <if test="request.waybillCode != null and request.waybillCode != ''">
+                AND cr.waybill_code = #{request.waybillCode}
+            </if>
+            <if test="request.status != null">
+                AND cr.status = #{request.status}
+            </if>
+        </where>
+        ORDER BY cr.id DESC
+    </select>
+
+
+    <!-- 查询体检报告总数 -->
+    <select id="selectByPage_COUNT" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM tb_checkup_report r
+        <where>
+            <if test="(request.name != null and request.name != '')
+              or (request.tel != null and request.tel != '')">
+                AND EXISTS (
+                SELECT 1
+                FROM tb_appointment a
+                WHERE a.id = r.appointment_id
+                <if test="request.name != null and request.name != ''">
+                    AND a.name LIKE CONCAT('%', #{request.name}, '%')
+                </if>
+                <if test="request.tel != null and request.tel != ''">
+                    AND a.tel = #{request.tel}
+                </if>
+                )
+            </if>
+
+            <if test="request.waybillCode != null and request.waybillCode != ''">
+                AND r.waybill_code = #{request.waybillCode}
+            </if>
+            <if test="request.status != null">
+                AND r.status = #{request.status}
+            </if>
+        </where>
+    </select>
+
+    <!-- 查询待自动生成的报告记录  -->
+    <select id="selectPendingAutoGenerateReports"
+            resultType="com.leehuang.his.api.db.entity.CheckupReportEntity">
+        SELECT r.id, r.appointment_id, r.result_id, r.date
+        FROM tb_appointment a
+                 INNER JOIN tb_checkup_report r ON a.id = r.appointment_id
+        WHERE a.status = #{appointmentStatus}
+          AND r.status = #{reportStatus}
+          and a.completed_time &gt;= #{startDateTime}
+          and a.completed_time &lt; #{endDateTime}
+          AND a.is_deleted = 0
+            /* 过滤掉最近 24 小时内失败过的记录，避免每次执行定时任务时都重试 */
+          AND (r.error_time IS NULL OR r.error_time &lt; DATE_SUB(NOW(), INTERVAL 24 HOUR))
+        ORDER BY a.completed_time, r.id
+        LIMIT #{limit}
+    </select>
 </mapper>

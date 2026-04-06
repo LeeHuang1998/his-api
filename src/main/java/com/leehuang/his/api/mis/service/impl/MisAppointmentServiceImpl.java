@@ -7,11 +7,10 @@ import com.leehuang.his.api.common.enums.OrderStatusEnum;
 import com.leehuang.his.api.common.utils.FaceIAIUtil;
 import com.leehuang.his.api.common.utils.MinioUtil;
 import com.leehuang.his.api.common.utils.PageUtils;
-import com.leehuang.his.api.common.enums.CheckInStatusEnum;
+import com.leehuang.his.api.common.enums.AppointmentStatusEnum;
 import com.leehuang.his.api.common.utils.QrCodeUtil;
 import com.leehuang.his.api.db.dao.*;
 import com.leehuang.his.api.db.entity.AppointmentEntity;
-import com.leehuang.his.api.db.entity.CheckupReportEntity;
 import com.leehuang.his.api.db.entity.FlowRegulationEntity;
 import com.leehuang.his.api.db.entity.OrderEntity;
 import com.leehuang.his.api.db.pojo.CheckupResultEntity;
@@ -24,8 +23,8 @@ import com.leehuang.his.api.mis.dto.appointment.request.MisAppointmentPageReques
 import com.leehuang.his.api.mis.dto.appointment.request.MisHasAppointmentTodayRequest;
 import com.leehuang.his.api.mis.dto.appointment.vo.*;
 import com.leehuang.his.api.mis.dto.appointment.dto.GuidanceSummaryInfoVO;
-import com.leehuang.his.api.mis.dto.checkup.vo.PlaceCheckupResultItemVO;
 import com.leehuang.his.api.mis.dto.checkup.vo.PlaceCheckupResultVO;
+import com.leehuang.his.api.mis.dto.flowRegulation.dto.CheckupProgressDTO;
 import com.leehuang.his.api.mis.dto.flowRegulation.dto.NextPlaceVO;
 import com.leehuang.his.api.mis.dto.goods.vo.CheckupVO;
 import com.leehuang.his.api.mis.dto.order.dto.OrderAppointmentFinishedDTO;
@@ -42,7 +41,7 @@ import java.time.Period;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service("MisAppointmentService")
+@Service
 @RequiredArgsConstructor
 @Slf4j
 public class MisAppointmentServiceImpl implements MisAppointmentService {
@@ -131,9 +130,9 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
         AppointmentEntity appointmentEntity = appointmentDao.selectOne(finalWrapper);
         System.out.println(appointmentEntity);
         if (appointmentEntity == null) {
-            return CheckInStatusEnum.NULL_APPOINTMENT.getCode();
+            return AppointmentStatusEnum.NULL_APPOINTMENT.getCode();
         } else {
-            return CheckInStatusEnum.fromCode(appointmentEntity.getStatus()).getCode();
+            return AppointmentStatusEnum.fromCode(appointmentEntity.getStatus()).getCode();
         }
     }
 
@@ -164,13 +163,15 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
 
         if (appointmentEntity == null) {
             throw new HisException("没有找到客户预约数据，请确认该客户是否预约");
-        } else if (Objects.equals(appointmentEntity.getStatus(), CheckInStatusEnum.CHECK_IN.getCode())) {
+        } else if (Objects.equals(appointmentEntity.getStatus(), AppointmentStatusEnum.CHECK_IN.getCode())) {
             throw new HisException("该客户已经签到，请勿重复签到");
-        } else if (Objects.equals(appointmentEntity.getStatus(), CheckInStatusEnum.CHECK_FINISHED.getCode())) {
+        } else if (Objects.equals(appointmentEntity.getStatus(), AppointmentStatusEnum.CHECK_COMPLETED.getCode())) {
             throw new HisException("该客户已经体检完毕，请勿重复签到");
-        } else if (Objects.equals(appointmentEntity.getStatus(), CheckInStatusEnum.CHECK_CLOSED.getCode())) {
+        } else if (Objects.equals(appointmentEntity.getStatus(), AppointmentStatusEnum.CHECK_CLOSED.getCode())) {
             throw new HisException("该客户体检已关闭，请勿签到");
         }
+
+        String uuid = appointmentEntity.getUuid();
 
         // 1. 传入身份证照和拍摄图片到腾讯云人脸识别接口，执行人脸对比 + 静态活体识别
         boolean verifyResult = faceIAIUtil.verifyFaceModel(personName, pid, gender, idCardImage, cameraPhoto);
@@ -194,14 +195,14 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
             LambdaUpdateWrapper<AppointmentEntity> updateWrapper =
                     new LambdaUpdateWrapper<AppointmentEntity>()
                             .eq(AppointmentEntity::getPid, pid)
-                            .eq(AppointmentEntity::getStatus, CheckInStatusEnum.NOT_CHECK_IN.getCode())
+                            .eq(AppointmentEntity::getStatus, AppointmentStatusEnum.NOT_CHECK_IN.getCode())
                             .eq(AppointmentEntity::getAppointmentDate, LocalDate.now())
-                            .set(AppointmentEntity::getStatus, CheckInStatusEnum.CHECK_IN.getCode())
+                            .set(AppointmentEntity::getStatus, AppointmentStatusEnum.CHECK_IN.getCode())
                             .set(AppointmentEntity::getCheckinTime, LocalDateTime.now());
             int updateRows = appointmentDao.update(null, updateWrapper);
 
             if (updateRows != 1) {
-                log.error("用户：[{},{}]更新签到状态失败", personName, LocalDateTime.now());
+                log.error("预约单号：{}，用户：[{},{}]更新签到状态失败", uuid, personName, LocalDateTime.now());
                 throw new HisException("更新签到状态失败");
             }
 
@@ -217,16 +218,16 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
             // 3.2 生成体检结果快照
             String _id = checkupResultDao.insert(snapshotDTO.getUuid(), personName, checkupVOList);
             if (_id == null || _id.isBlank()) {
+                log.error("体检单 uuid：【{}】，生成体检结果快照失败", uuid);
                 throw new HisException("生成体检结果快照失败");
             }
 
             // 3.3 插入数据到 tb_checkup_report 表中
-            CheckupReportEntity reportEntity = new CheckupReportEntity();
-            reportEntity.setAppointmentId(appointmentEntity.getId());
-            reportEntity.setResultId(_id);
-            reportEntity.setStatus(1);
-            reportEntity.setDate(LocalDate.now());
-            reportEntity.setCreateTime(LocalDateTime.now());
+            int insert = checkupReportDao.insert(uuid, _id);
+            if (insert != 1) {
+                log.error("体检单 uuid：【{}】，体检结果报告插入失败", uuid);
+                throw new HisException("体检单 uuid：【" + uuid + "】，体检结果报告插入失败");
+            }
 
             // 4. 获取当前推荐的科室，签到时肯定没有做过任何检查，所以下一个科室需要排队，传入 true
             NextPlaceVO dto = misFlowRegulationService.recommendNextPlace(snapshotDTO.getUuid(), true);
@@ -285,65 +286,37 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
     @Transactional
     public boolean updateAppointmentStatusByUuid(AppointmentStatusRequest request) {
 
-        // 1. 更新体检预约状态（ status 不为 CHECK_FINISHED 的预约记录）
+        // 1. 判断本次体检是否所有项目都已完成
+        CheckupProgressDTO progress = checkupResultDao.getCheckupProgress(request.getUuid());
+
+        if (!progress.isAllFinished()) {
+            throw new HisException("本次体检预约尚未完成所有体检项目");
+        }
+
+        // 2. 更新体检预约状态（ status 不为 CHECK_FINISHED 的预约记录）
         LambdaUpdateWrapper<AppointmentEntity> updateWrapper = new LambdaUpdateWrapper<AppointmentEntity>()
                 .eq(AppointmentEntity::getUuid, request.getUuid())
-                .ne(AppointmentEntity::getStatus, CheckInStatusEnum.CHECK_FINISHED.getCode())
-                .set(AppointmentEntity::getStatus, request.getNewStatus());
+                .eq(AppointmentEntity::getStatus, AppointmentStatusEnum.CHECK_IN.getCode())
+                .set(AppointmentEntity::getStatus, AppointmentStatusEnum.CHECK_COMPLETED.getCode())
+                .set(AppointmentEntity::getCompletedTime, LocalDateTime.now());
 
         int rows = appointmentDao.update(null, updateWrapper);
         if (rows != 1) {
             throw new HisException("更新预约状态失败");
         }
 
-        // 2. 该体检的状态更新完成后，判断当前订单的所有商品是否都已完成预约
+        // 3. 该体检的状态更新完成后，判断当前订单的所有商品是否都已完成预约
         OrderAppointmentFinishedDTO dto = orderDao.searchOrderFinished(request.getUuid());
-        // 2.1 若订单的商品数与预约完成数相同，则更新订单状态为已结束
+        // 若订单的商品数与预约完成数相同，则更新订单状态为已结束，否则不修改订单状态，因为在 insertAppointment 中，在预约数小于订单商品数时已经修改过订单状态了
         if (Objects.equals(dto.getGoodsCount(), dto.getAppointmentFinishedCount())) {
             LambdaUpdateWrapper<OrderEntity> updateStatusWrapper = new LambdaUpdateWrapper<OrderEntity>()
                     .eq(OrderEntity::getId, dto.getOrderId())
-                    .set(OrderEntity::getStatus, OrderStatusEnum.FINISHED.getCode());
+                    .eq(OrderEntity::getStatus,OrderStatusEnum.ALLAPPOINTED)
+                    .set(OrderEntity::getStatus, OrderStatusEnum.COMPLETED.getCode());
             rows = orderDao.update(null, updateStatusWrapper);
             if (rows != 1) {
+                log.error("订单中所有预约都已完成，但订单状态更新为 ALLAPPOINTED 失败");
                 throw new HisException("更新订单状态失败");
-            }
-        }
-
-        // 3. 查询体检是否都已完成
-        // 3.1 获取体检结果
-        CheckupResultEntity entity = checkupResultDao.searchResultByUuid(request.getUuid());
-
-        // 3.1 提取应检项目（item）
-        Set<String> requiredItems = entity.getCheckup().stream()
-                .map(CheckupVO::getItem)
-                .collect(Collectors.toSet());
-
-        // 3.2 提取已检项目（checkupName）
-        // entity.getResult() 可能为 null，Optional.ofNullable() 将这个可能为 null 的值包装成一个 Optional 对象
-        //      若为 null 则返回 Optional.empty()，若不为 null 则包装成 Optional<List<PlaceCheckupResultVO>>
-        // orElse：若 Optional 返回的是 Optional.empty()，则返回一个空的不可变列表 Collections.emptyList()
-        // .filter(Objects::nonNull)：过滤掉 stream 中可能存在的 null 元素，只保留非 null 的 PlaceCheckupResultVO 对象。理论上 result 不为空时不会有 null，属于防御性编程
-        // .flatMap：将所有相同科室的所有检查项合并成一个统一的项目流，类似于 Map，key 为科室名，value 为该科室的所有检查项
-        // flatMap 的作用是将嵌套对象里的某个属性全部提取出来放在同一个流中。注：flatMap 必须返回一个 Stream
-        // 例如 PlaceCheckupResultVO 中的 checkupItems 属性是一个 List<PlaceCheckupResultItemVO>，flatMap 会将这个 List<PlaceCheckupResultItemVO> 中的所有 CheckupVO 对象提取出来放在同一个流中
-        Set<String> completedItems = Optional.ofNullable(entity.getResult())
-                .orElse(Collections.emptyList())
-                .stream()
-                .filter(Objects::nonNull)
-                .flatMap(r -> Optional.ofNullable(r.getCheckupItems()).orElse(List.of()).stream())
-                .map(PlaceCheckupResultItemVO::getCheckupName)
-                .collect(Collectors.toSet());
-
-        // 3.3 判断是否全部完成（且至少有一个项目）
-        boolean hasCheckupItems = !requiredItems.isEmpty();
-        boolean allCheckupFinished = hasCheckupItems && completedItems.containsAll(requiredItems);
-
-        // 3.4 所有体检完成
-        if (allCheckupFinished) {
-            // 插入记录到体检报告表中
-            rows = checkupReportDao.insert(entity.getUuid(), entity.get_id());
-            if (rows != 1) {
-                throw new HisException("插入体检报告失败");
             }
         }
 
@@ -363,10 +336,10 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
         if (summaryInfoVO == null) {
             throw new HisException("未查询到体检预约信息");
         }
-        if (Objects.equals(summaryInfoVO.getStatus(), CheckInStatusEnum.NOT_CHECK_IN.getCode())) {
+        if (Objects.equals(summaryInfoVO.getStatus(), AppointmentStatusEnum.NOT_CHECK_IN.getCode())) {
             throw new HisException("该预约尚未签到");
         }
-        if (Objects.equals(summaryInfoVO.getStatus(), CheckInStatusEnum.CHECK_FINISHED.getCode())) {
+        if (Objects.equals(summaryInfoVO.getStatus(), AppointmentStatusEnum.CHECK_COMPLETED.getCode())) {
             throw new HisException("该预约已结束");
         }
 
@@ -409,7 +382,7 @@ public class MisAppointmentServiceImpl implements MisAppointmentService {
         // 4.1 所有科室
         Set<String> allPlaceSet = entity.getCheckup().stream().map(CheckupVO::getPlace).map(String::trim).collect(Collectors.toSet());
 
-        // TODO 查询这些 place 的 is_delete 状态是否为 0
+        // 查询这些 place 的 is_delete 状态是否为 0
         Map<String, Integer> placeStatusMap = misFlowRegulationService.getBaseMapper()
                 .selectList(new LambdaQueryWrapper<FlowRegulationEntity>().in(FlowRegulationEntity::getPlace, allPlaceSet))
                 .stream().collect(Collectors.toMap(FlowRegulationEntity::getPlace, FlowRegulationEntity::getIsDeleted));

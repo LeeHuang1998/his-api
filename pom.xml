@@ -2,19 +2,44 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>2.7.18</version>
         <relativePath/>
     </parent>
+
     <groupId>com.example</groupId>
     <artifactId>his-api</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>his-api</name>
     <description>his-api</description>
+
     <properties>
-        <java.version>15</java.version>
+        <java.version>17</java.version>
+
+        <!-- 统一版本管理-->
+        <lombok.version>1.18.30</lombok.version>
+        <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <mybatis-plus.version>3.5.3.2</mybatis-plus.version>
+        <redisson.version>3.17.7</redisson.version>
+        <mysql.version>8.0.32</mysql.version>
+        <druid.version>1.2.15</druid.version>
+        <shardingsphere.version>5.2.1</shardingsphere.version>
+        <snakeyaml.version>1.33</snakeyaml.version>
+        <xxl-job.version>2.4.1</xxl-job.version>
+        <hutool.version>5.8.12</hutool.version>
+        <sa-token.version>1.34.0</sa-token.version>
+        <commons-pool2.version>2.11.1</commons-pool2.version>
+        <zxing.version>3.5.3</zxing.version>
+        <payment.version>1.0.17.RELEASE</payment.version>
+        <tencentcloud.version>3.1.987</tencentcloud.version>
+        <minio.version>8.2.1</minio.version>
+        <okio.version>2.8.0</okio.version>
+        <poi.version>5.2.3</poi.version>
+        <alipay.version>4.38.61.ALL</alipay.version>
+        <aliyun-dypnsapi.version>2.0.0</aliyun-dypnsapi.version>
     </properties>
 
     <repositories>
@@ -23,8 +48,12 @@
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
-            <releases><enabled>true</enabled></releases>
-            <snapshots><enabled>false</enabled></snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
@@ -50,19 +79,19 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-boot-starter</artifactId>
-            <version>3.5.3.2</version>
+            <version>${mybatis-plus.version}</version>
         </dependency>
 
         <!-- MapStruct -->
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
-            <version>1.5.5.Final</version>
+            <version>${mapstruct.version}</version>
         </dependency>
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct-processor</artifactId>
-            <version>1.5.5.Final</version>
+            <version>${mapstruct.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -75,6 +104,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
 
@@ -94,7 +124,7 @@
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-boot-starter</artifactId>
-            <version>3.17.7</version>
+            <version>${redisson.version}</version>
         </dependency>
 
         <!--Jackson-->
@@ -113,41 +143,48 @@
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
-            <version>8.0.32</version>
+            <version>${mysql.version}</version>
         </dependency>
 
-        <!-- 某些数据源池(如druid)的 spring-boot-starter 会在 shardingsphere-jdbc-spring-boot-starter 创建默认数据源之前配置,导致 ShardingSphere-JDBC 创建数据源时发生冲突。 -->
-        <!-- 解决这个问题的一个简单方法是删除某些数据源池的spring-boot-starter,允许shardingsphere-jdbc 创建具有合适池的数据源。-->
+        <!-- 某些数据源池（如 druid）的 spring-boot-starter 会在 shardingsphere-jdbc-spring-boot-starter 创建默认数据源之前配置,导致 ShardingSphere-JDBC 创建数据源时发生冲突。 -->
+        <!-- 解决这个问题的一个简单方法是删除某些数据源池的 spring-boot-starter,允许 shardingsphere-jdbc 创建具有合适池的数据源。-->
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>druid</artifactId>
-            <version>1.2.15</version>
+            <version>${druid.version}</version>
         </dependency>
 
         <!-- shardingsphere -->
         <dependency>
             <groupId>org.apache.shardingsphere</groupId>
             <artifactId>shardingsphere-jdbc-core-spring-boot-starter</artifactId>
-            <version>5.2.1</version>
+            <version>${shardingsphere.version}</version>
+            <exclusions>
+                <!-- 排除旧版 log4j 1.x，降低日志依赖风险 -->
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>org.apache.shardingsphere</groupId>-->
-<!--            <artifactId>shardingsphere-jdbc-core</artifactId>-->
-<!--            <version>5.3.2</version>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.shardingsphere</groupId>-->
+        <!--            <artifactId>shardingsphere-jdbc-core</artifactId>-->
+        <!--            <version>5.3.2</version>-->
+        <!--        </dependency>-->
 
         <!-- 显式引入高版本 SnakeYAML -->
         <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
-            <version>1.33</version>
+            <version>${snakeyaml.version}</version>
         </dependency>
 
         <!-- XXL-JOB -->
         <dependency>
             <groupId>com.xuxueli</groupId>
             <artifactId>xxl-job-core</artifactId>
-            <version>2.4.1</version> <!-- 与你的调度中心版本一致 -->
+            <version>${xxl-job.version}</version> <!-- 与调度中心版本一致 -->
         </dependency>
 
         <!--MongoDB-->
@@ -160,7 +197,7 @@
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
-            <version>5.8.12</version>
+            <version>${hutool.version}</version>
         </dependency>
 
         <!--HTTP状态码-->
@@ -180,94 +217,89 @@
         <dependency>
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-spring-boot-starter</artifactId>
-            <version>1.34.0</version>
+            <version>${sa-token.version}</version>
         </dependency>
 
+        <!-- SaToken-Redis 整合 -->
         <dependency>
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-dao-redis</artifactId>
-            <version>1.34.0</version>
+            <version>${sa-token.version}</version>
         </dependency>
 
         <dependency>
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-spring-aop</artifactId>
-            <version>1.34.0</version>
+            <version>${sa-token.version}</version>
         </dependency>
 
         <dependency>
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-alone-redis</artifactId>
-            <version>1.34.0</version>
+            <version>${sa-token.version}</version>
         </dependency>
 
         <!--对象池-->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
-            <version>2.11.1</version>
+            <version>${commons-pool2.version}</version>
         </dependency>
 
         <!-- 生成二维码图片 -->
-<!--        <dependency>-->
-<!--            <groupId>com.google.zxing</groupId>-->
-<!--            <artifactId>core</artifactId>-->
-<!--            <version>3.3.3</version>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>com.google.zxing</groupId>-->
+        <!--            <artifactId>core</artifactId>-->
+        <!--            <version>3.3.3</version>-->
+        <!--        </dependency>-->
 
         <!-- 生成二维码图片 -->
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>core</artifactId>
-            <version>3.5.3</version>
+            <version>${zxing.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>javase</artifactId>
-            <version>3.5.3</version>
+            <version>${zxing.version}</version>
         </dependency>
 
         <!--微信支付-->
-        <dependency>
-            <groupId>cn.felord</groupId>
-            <artifactId>payment-spring-boot-starter</artifactId>
-            <version>1.0.17.RELEASE</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>cn.felord</groupId>-->
+<!--            <artifactId>payment-spring-boot-starter</artifactId>-->
+<!--            <version>${payment.version}</version>-->
+<!--        </dependency>-->
 
         <!--腾讯云-->
         <dependency>
             <groupId>com.tencentcloudapi</groupId>
             <artifactId>tencentcloud-sdk-java</artifactId>
-            <version>3.1.987</version>
+            <version>${tencentcloud.version}</version>
         </dependency>
 
         <!--Minio-->
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
-            <version>8.2.1</version>
+            <version>${minio.version}</version>
         </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>commons-fileupload</groupId>-->
-<!--            <artifactId>commons-fileupload</artifactId>-->
-<!--            <version>1.2.2</version>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>commons-fileupload</groupId>-->
+        <!--            <artifactId>commons-fileupload</artifactId>-->
+        <!--            <version>1.2.2</version>-->
+        <!--        </dependency>-->
 
         <dependency>
             <groupId>com.squareup.okio</groupId>
             <artifactId>okio</artifactId>
-            <version>2.8.0</version>
+            <version>${okio.version}</version>
         </dependency>
 
         <!--RabbitMQ-->
-        <dependency>
-            <groupId>com.rabbitmq</groupId>
-            <artifactId>amqp-client</artifactId>
-            <version>5.9.0</version>
-        </dependency>
-
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
@@ -308,19 +340,19 @@
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
-            <version>5.2.3</version>
+            <version>${poi.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
-            <version>5.2.3</version>
+            <version>${poi.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-scratchpad</artifactId>
-            <version>5.2.3</version>
+            <version>${poi.version}</version>
         </dependency>
         <!--华为云-->
         <!--
@@ -356,18 +388,17 @@
         <dependency>
             <groupId>com.alipay.sdk</groupId>
             <artifactId>alipay-sdk-java</artifactId>
-            <version>4.38.61.ALL</version>
+            <version>${alipay.version}</version>
         </dependency>
 
-        <!-- 阿里云 号码认证 SDK (DypnsApi) ，包含短信认证服务-->
+        <!-- 阿里云 号码认证 SDK (DypnsApi) ，包含短信认证服务 -->
         <dependency>
             <groupId>com.aliyun</groupId>
             <artifactId>dypnsapi20170525</artifactId>
-            <version>2.0.0</version>
+            <version>${aliyun-dypnsapi.version}</version>
         </dependency>
 
     </dependencies>
-
 
     <build>
         <plugins>
@@ -388,21 +419,21 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <release>${java.version}</release>
                     <annotationProcessorPaths>
                         <!-- Lombok 注解处理器 -->
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <version>1.18.30</version>
+                            <version>${lombok.version}</version>
                         </path>
                         <!-- MapStruct 注解处理器 -->
                         <path>
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>
-                            <version>1.5.5.Final</version>
+                            <version>${mapstruct.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

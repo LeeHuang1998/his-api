@@ -1,5 +1,6 @@
 package com.leehuang.his.api.interceptor;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.leehuang.his.api.config.sa_token.StpCustomerUtil;
 import com.leehuang.his.api.exception.HisException;
 import com.leehuang.his.api.front.service.OrderService;
@@ -52,49 +53,74 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             // 去除 Bearer 前缀
             token = token.substring(7).trim();
 
+            Integer userId = null;
+            String userType = null;
+
+            // 2. 优先尝试 front 端用户解析
             try {
-                // 2. 通过 token 获取 customerId
+                // 2.1 通过 token 获取 customerId
                 Object loginId = StpCustomerUtil.getLoginIdByToken(token);
-                Integer customerId = Integer.parseInt(loginId.toString());
-
-                // 3. 将用户 ID 绑定当前 STOMP 会话，表示当前会话认证的用户
-                // STOMP 会话是指客户端和服务器之间的一个持久连接，从 CONNECT 开始，到 DISCONNECT 结束，在同一个 WebSocket 连接中，所有 STOMP 帧共享同一个会话
-                // accessor.setUser(Principal principal)：Principal 是 Java 安全框架的接口，代表认证主体，后续的 SUBSCRIBE/SEND 命令可以访问此用户身份
-                Map<String, Object> sessionAttrs = accessor.getSessionAttributes();
-                if (sessionAttrs == null) {
-                    sessionAttrs = new HashMap<>();
-                }
-
-                sessionAttrs.put("customerId", customerId);
-                accessor.setSessionAttributes(sessionAttrs);
-
-//                accessor.setUser(customerId::toString);
-                log.info("WebSocket 认证成功，用户ID: {}", customerId);
-            } catch (Exception e) {
-                log.error("WebSocket 认证失败", e);
-                throw new HisException("无效的 token: " + e.getMessage());
+                userId = Integer.parseInt(loginId.toString());
+                userType = "CUSTOMER";
+            } catch (Exception ignored) {
+                // front 端用户解析失败，不是异常，可能是 mis 端用户
             }
+
+            // 2.2 如果 front 端没解析出来，尝试 mis 端用户解析
+            if (userId == null) {
+                try {
+                    Object loginId = StpUtil.getLoginIdByToken(token);
+                    userId = Integer.parseInt(loginId.toString());
+                    userType = "ADMIN";
+                } catch (Exception e) {
+                    log.error("WebSocket 认证失败", e);
+                    throw new HisException("无效的 token: " + e.getMessage());
+                }
+            }
+
+            // 3. 将用户 ID 绑定当前 STOMP 会话，表示当前会话认证的用户
+            // STOMP 会话是指客户端和服务器之间的一个持久连接，从 CONNECT 开始，到 DISCONNECT 结束，在同一个 WebSocket 连接中，所有 STOMP 帧共享同一个会话
+            // accessor.setUser(Principal principal)：Principal 是 Java 安全框架的接口，代表认证主体，后续的 SUBSCRIBE/SEND 命令可以访问此用户身份
+            Map<String, Object> sessionAttrs = accessor.getSessionAttributes();
+            if (sessionAttrs == null) {
+                sessionAttrs = new HashMap<>();
+            }
+
+            sessionAttrs.put("userType", userType);
+            if ("CUSTOMER".equals(userType)) {
+                sessionAttrs.put("customerId", userId);
+            } else {
+                sessionAttrs.put("adminId", userId);
+            }
+            accessor.setSessionAttributes(sessionAttrs);
+
+            accessor.setUser(userId::toString);
+            log.info("WebSocket 认证成功，用户ID: {}", userId);
         }
 
         // 4. SUBSCRIBE 阶段：判断当前是否为订阅请求，如果是则执行权限验证
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             // 获取 STOMP 帧的目标地址，即前端订阅的地址，例如 /topic/payment/20251022001
             String destination = accessor.getDestination();
+            Map<String, Object> sessionAttrs = accessor.getSessionAttributes();
 
-            // 判断订阅地址是否为支付结果主题（payment），若为其他主题则不执行校验
-            if (destination != null && destination.startsWith("/topic/payment/")) {
-                // 获取订单号和 customerId（customerId 在 STOMP 会话的 CONNECT 阶段 setUser() 放入）
+            if (sessionAttrs == null || destination == null) {
+                return message;
+            }
+
+            String userType = (String) sessionAttrs.get("userType");
+
+            // 判断订阅地址是否为支付结果主题（payment）
+            if (destination.startsWith("/topic/payment/")) {
                 String outTradeNo = destination.substring("/topic/payment/".length());
-
-                Map<String, Object> sessionAttrs = accessor.getSessionAttributes();
+                // 取出 customerId，因为是 front 端走这个分支
                 Integer customerId = (Integer) sessionAttrs.get("customerId");
-
-//                String customerIdStr = accessor.getUser().getName();
-
-                // 验证当前用户是否有权订阅该订单
                 if (!Objects.equals(orderService.searchCustomerId(outTradeNo), customerId)) {
-                    log.warn("用户 {} 无权访问订单 {} 的支付状态", customerId, outTradeNo);
                     throw new HisException("无权访问该订单的支付状态");
+                }
+            } else if (destination.startsWith("/topic/checkup-report")) {               // 体检报告主题权限校验
+                if (!"ADMIN".equals(userType)) {
+                    throw new HisException("无权订阅体检报告状态");
                 }
             }
         }

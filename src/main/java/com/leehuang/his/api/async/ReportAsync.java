@@ -17,6 +17,7 @@ import com.leehuang.his.api.mis.mapper.CheckupReportConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +27,9 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -46,6 +49,8 @@ public class ReportAsync {
     private final CheckupReportUtil checkupReportUtil;
 
     private final MinioUtil minioUtil;
+
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * 异步生成体检报告，使用 AsyncTaskExecutor 线程池异步执行
@@ -150,6 +155,20 @@ public class ReportAsync {
             }
 
             log.info("【体检报告生成完成】reportId={}, filePath={}", id, filePath);
+
+            // 7. 发送 WebSocket 广播通知
+            try {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("reportId", id);
+                payload.put("status", ReportStatusEnum.GENERATED.getCode());
+                // 广播给所有订阅了 /topic/checkup-report 的后台用户
+                messagingTemplate.convertAndSend("/topic/checkup-report", payload);
+                log.info("【WebSocket 推送成功】报告生成成功，发送通知, reportId={}", id);
+            } catch (Exception ex) {
+                log.error("【WebSocket 推送失败】reportId={}", id, ex);
+                // 推送失败不影响主流程，只记日志
+            }
+
 
         } catch (Exception e) {
             log.error("生成体检报告失败 reportId={}", id, e);

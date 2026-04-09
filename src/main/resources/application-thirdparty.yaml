@@ -10,8 +10,8 @@ aliyun:
 alipay:
   app-id: ${ALIPAY_APP_ID}                                                         # 沙箱 APPID
   gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do                       # 沙箱网关地址
-  notify-url: http://h6a85a39.natappfree.cc/his-api/front/pay/notify                 # 支付成功后的回调地址
-  return-url: http://h6a85a39.natappfree.cc/return                                   # 支付成功后跳转的页面，不是必须项
+  notify-url: http://df4d4d96.natappfree.cc/his-api/front/pay/notify                 # 支付成功后的回调地址
+  return-url: http://df4d4d96.natappfree.cc/return                                   # 支付成功后跳转的页面，不是必须项
   sign-type: RSA2                                                                   # 签名方式，即指定签名算法类型，必须为 RSA2
   charset: utf-8                                                                    # 指定请求和响应的字符编码，必须为 UTF-8
   format: json                                                                      # 指定 API 请求和响应的数据格式

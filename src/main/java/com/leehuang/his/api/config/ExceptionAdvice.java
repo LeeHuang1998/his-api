@@ -1,7 +1,6 @@
 package com.leehuang.his.api.config;
 
 import cn.dev33.satoken.exception.NotLoginException;
-import cn.felord.payment.PayException;
 import com.leehuang.his.api.common.R;
 import com.leehuang.his.api.exception.BizCodeEnum;
 import com.leehuang.his.api.exception.FileException;
@@ -103,11 +102,11 @@ public class ExceptionAdvice {
         }
 
         // 微信支付异常
-        else if (e instanceof PayException) {
-            PayException exception = (PayException) e;
-            log.error("微信支付异常", e);                      // 详细错误信息输出到日志中
-            return R.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "微信支付异常：" + exception.getMessage());
-        }
+//        else if (e instanceof PayException) {
+//            PayException exception = (PayException) e;
+//            log.error("微信支付异常", e);                      // 详细错误信息输出到日志中
+//            return R.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "微信支付异常：" + exception.getMessage());
+//        }
 
         // 其他异常
         else {

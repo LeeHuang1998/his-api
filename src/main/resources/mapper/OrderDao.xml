@@ -166,7 +166,10 @@
         update tb_order
             set status = 2
         where out_trade_no = #{outTradeNo}
-            and status = 1 and payment_type = #{paymentType}
+            and status = 1
+        <if test="paymentType != null">
+            and payment_type = #{paymentType}
+        </if>
     </update>
 
     <!-- 查询超时未支付订单ID列表 -->
